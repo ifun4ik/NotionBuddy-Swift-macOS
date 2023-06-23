@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D656A032A3C2F0E0065A725 /* WebView.swift */; };
 		8D9435AF2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */; };
-		8D9435B12A3A461F00F7CC62 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435B02A3A461F00F7CC62 /* Persistence.swift */; };
 		8D9435B42A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435B22A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld */; };
 		8D9435B62A3A461F00F7CC62 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435B52A3A461F00F7CC62 /* ContentView.swift */; };
 		8D9435B82A3A462000F7CC62 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D9435B72A3A462000F7CC62 /* Assets.xcassets */; };
@@ -36,9 +36,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		8D656A032A3C2F0E0065A725 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
 		8D9435AB2A3A461F00F7CC62 /* NotionBuddySwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NotionBuddySwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionBuddySwiftApp.swift; sourceTree = "<group>"; };
-		8D9435B02A3A461F00F7CC62 /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
 		8D9435B32A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = NotionBuddySwift.xcdatamodel; sourceTree = "<group>"; };
 		8D9435B52A3A461F00F7CC62 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		8D9435B72A3A462000F7CC62 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -49,6 +49,7 @@
 		8D9435CB2A3A462000F7CC62 /* NotionBuddySwiftUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NotionBuddySwiftUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8D9435CF2A3A462000F7CC62 /* NotionBuddySwiftUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionBuddySwiftUITests.swift; sourceTree = "<group>"; };
 		8D9435D12A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionBuddySwiftUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		8D9435DE2A3A47C500F7CC62 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,9 +100,10 @@
 		8D9435AD2A3A461F00F7CC62 /* NotionBuddySwift */ = {
 			isa = PBXGroup;
 			children = (
+				8D9435DE2A3A47C500F7CC62 /* Info.plist */,
 				8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */,
-				8D9435B02A3A461F00F7CC62 /* Persistence.swift */,
 				8D9435B52A3A461F00F7CC62 /* ContentView.swift */,
+				8D656A032A3C2F0E0065A725 /* WebView.swift */,
 				8D9435B72A3A462000F7CC62 /* Assets.xcassets */,
 				8D9435B92A3A462000F7CC62 /* NotionBuddySwift.entitlements */,
 				8D9435B22A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld */,
@@ -268,7 +270,7 @@
 				8D9435B42A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld in Sources */,
 				8D9435AF2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift in Sources */,
 				8D9435B62A3A461F00F7CC62 /* ContentView.swift in Sources */,
-				8D9435B12A3A461F00F7CC62 /* Persistence.swift in Sources */,
+				8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -427,6 +429,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotionBuddySwift/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -440,15 +443,16 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 13.2;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = gl1n.NotionBuddySwift;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -465,6 +469,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotionBuddySwift/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -478,15 +483,16 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 13.2;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = gl1n.NotionBuddySwift;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};

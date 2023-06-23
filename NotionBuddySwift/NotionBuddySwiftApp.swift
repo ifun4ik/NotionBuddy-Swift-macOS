@@ -1,20 +1,22 @@
-//
-//  NotionBuddySwiftApp.swift
-//  NotionBuddySwift
-//
-//  Created by Harry on 14.06.2023.
-//
-
 import SwiftUI
 
 @main
-struct NotionBuddySwiftApp: App {
-    let persistenceController = PersistenceController.shared
-
-    var body: some Scene {
-        WindowGroup {
+struct NotionBuddyApp : App {
+//MARK: This part wipes user defaults each time the app being launched
+//    init() {
+//            if let bundleID = Bundle.main.bundleIdentifier {
+//                UserDefaults.standard.removePersistentDomain(forName: bundleID)
+//            }
+//        }
+    
+    var body : some Scene {
+        WindowGroup{
             ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
-        }
+                .frame(minWidth : 552 , maxWidth : 552 , minHeight : 612 , maxHeight : 612)
+        }.windowStyle(HiddenTitleBarWindowStyle())
+         .windowToolbarStyle(UnifiedCompactWindowToolbarStyle())
+         .commands{
+             CommandGroup(replacing : .newItem){} // Disable the New Window command
+         }
     }
 }

@@ -1,90 +1,182 @@
-//
-//  ContentView.swift
-//  NotionBuddySwift
-//
-//  Created by Harry on 14.06.2023.
-//
-
 import SwiftUI
-import CoreData
+import AuthenticationServices
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
+    @State private var webAuthSession: ASWebAuthenticationSession?
+    @State private var accounts: [NotionAccount] = []
+    @State private var selectedAccountIndex: Int = 0
 
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+        VStack {
+            Button(action: {
+                // Start the web authentication session
+                startWebAuthSession()
+            }) {
+                Text("Authenticate with Notion")
+            }
+            
+            if accounts.isEmpty {
+                ProgressView()
+            } else {
+                Picker(selection: $selectedAccountIndex, label: Text("Select Account")) {
+                    ForEach(accounts.indices, id: \.self) { index in
+                        Text(self.accounts[index].name).tag(index)
                     }
                 }
-                .onDelete(perform: deleteItems)
+                .pickerStyle(MenuPickerStyle())
+                .frame(width: 200)
+                
+                displayAccountInfo(account: accounts[selectedAccountIndex])
             }
-            .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
+        }
+        .frame(width: 552, height: 612)
+        .onAppear {
+            // Check if the user is returning from authentication
+            if let notionBuddyID = UserDefaults.standard.string(forKey: "notionBuddyID") {
+                fetchAccountData(notionBuddyID: notionBuddyID)
             }
-            Text("Select an item")
         }
     }
+    
+    func startWebAuthSession() {
+        var urlString = "http://localhost:3000"
+        // Check if a notion_buddy_id is stored in the user defaults
+        if let notionBuddyID = UserDefaults.standard.string(forKey: "notionBuddyID") {
+            urlString += "?notion_buddy_id=\(notionBuddyID)"
+        }
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
+        guard let url = URL(string: urlString) else {
+            return
+        }
+
+        webAuthSession = ASWebAuthenticationSession(url: url, callbackURLScheme: "notionbuddy") { callbackURL, error in
+            guard error == nil, let successURL = callbackURL else {
+                return
+            }
+
+            guard let notionBuddyID = URLComponents(string: successURL.absoluteString)?.queryItems?.first(where: { $0.name == "notion_buddy_id" })?.value else {
+                return
+            }
+
+            // Store the notionBuddyID in user defaults
+            UserDefaults.standard.set(notionBuddyID, forKey: "notionBuddyID")
+
+            // Use the notion_buddy_id to fetch the account data
+            DispatchQueue.main.async {
+                fetchAccountData(notionBuddyID: notionBuddyID)
+            }
+        }
+
+        webAuthSession?.presentationContextProvider = contextProvider
+        webAuthSession?.start()
+    }
+
+
+    func fetchAccountData(notionBuddyID: String) {
+        let urlString = "http://localhost:3000/get_accounts?notion_buddy_id=\(notionBuddyID)"
+
+        guard let url = URL(string: urlString) else {
+            print("Invalid URL for fetching account data.")
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
+                print("Failed to fetch account data. Error: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let data = data else {
+                print("Failed to retrieve account data.")
+                return
+            }
+            
+            print("Received account data:")
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print(jsonString)
+            }
 
             do {
-                try viewContext.save()
+                let decodedData = try JSONDecoder().decode(AccountsResponse.self, from: data)
+                DispatchQueue.main.async {
+                    self.accounts = decodedData.accounts
+                    self.selectedAccountIndex = self.accounts.indices.first ?? 0
+
+                    print("Accounts fetched: \(self.accounts.count)")
+                    print("First Account's Name: \(self.accounts.first?.name ?? "No accounts")")
+                    print("Selected account name: \(self.accounts[self.selectedAccountIndex].name)")
+                }
             } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+                print("Failed to decode account data. Error: \(error.localizedDescription)")
             }
-        }
+        }.resume()
     }
 
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
 
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+
+    func displayAccountInfo(account: NotionAccount) -> some View {
+        VStack {
+            Text("Access Token: \(account.accessToken)")
+            Text("Name: \(account.name)")
+            
+            if let urlString = account.avatarUrl, let url = URL(string: urlString) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .frame(width: 100, height: 100)
+                } placeholder: {
+                    ProgressView()
+                }
             }
+            
+            Text("Workspace Name: \(account.workspaceName)")
+            Text("Workspace Avatar: \(account.workspaceIcon ?? "")")
         }
     }
+    
+    var contextProvider = ContextProvider()
 }
-
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+        ContentView()
+    }
+}
+
+struct AccountsResponse: Decodable {
+    let accounts: [NotionAccount]
+    let notionBuddyID: String
+    
+    enum CodingKeys: String, CodingKey {
+        case accounts
+        case notionBuddyID = "notion_buddy_id"
+    }
+}
+
+struct NotionAccount: Identifiable, Decodable, Hashable {
+    let id: String
+    let notionBuddyID: String
+    let accessToken: String
+    let name: String
+    let email: String
+    let avatarUrl: String?
+    let workspaceName: String
+    let workspaceIcon: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case notionBuddyID = "notion_buddy_id"
+        case accessToken = "access_token"
+        case name
+        case email
+        case avatarUrl = "avatar_url"
+        case workspaceName = "workspace_name"
+        case workspaceIcon = "workspace_icon"
+    }
+}
+
+class ContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        return NSApplication.shared.keyWindow!
     }
 }
