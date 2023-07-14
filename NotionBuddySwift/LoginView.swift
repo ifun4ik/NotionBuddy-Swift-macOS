@@ -1,43 +1,48 @@
 import SwiftUI
 import AuthenticationServices
 
-struct ContentView: View {
+struct LoginView: View {
     @State private var webAuthSession: ASWebAuthenticationSession?
     @State private var accounts: [NotionAccount] = []
     @State private var selectedAccountIndex: Int = 0
+    @State private var isAuthenticated: Bool = false
 
     var body: some View {
-        VStack {
-            Button(action: {
-                // Start the web authentication session
-                startWebAuthSession()
-            }) {
-                Text("Authenticate with Notion")
-            }
-            
-            if accounts.isEmpty {
-                ProgressView()
-            } else {
-                Picker(selection: $selectedAccountIndex, label: Text("Select Account")) {
-                    ForEach(accounts.indices, id: \.self) { index in
-                        Text(self.accounts[index].name).tag(index)
-                    }
+        if isAuthenticated {
+            MainView(accessToken: self.accounts[selectedAccountIndex].accessToken)
+        } else {
+            VStack {
+                Button(action: {
+                    // Start the web authentication session
+                    startWebAuthSession()
+                }) {
+                    Text("Authenticate with Notion")
                 }
-                .pickerStyle(MenuPickerStyle())
-                .frame(width: 200)
-                
-                displayAccountInfo(account: accounts[selectedAccountIndex])
+
+                if accounts.isEmpty {
+                    ProgressView()
+                } else {
+                    Picker(selection: $selectedAccountIndex, label: Text("Select Account")) {
+                        ForEach(accounts.indices, id: \.self) { index in
+                            Text(self.accounts[index].name).tag(index)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    .frame(width: 200)
+
+                    displayAccountInfo(account: accounts[selectedAccountIndex])
+                }
             }
-        }
-        .frame(width: 552, height: 612)
-        .onAppear {
-            // Check if the user is returning from authentication
-            if let notionBuddyID = UserDefaults.standard.string(forKey: "notionBuddyID") {
-                fetchAccountData(notionBuddyID: notionBuddyID)
+            .frame(width: 552, height: 612)
+            .onAppear {
+                // Check if the user is returning from authentication
+                if let notionBuddyID = UserDefaults.standard.string(forKey: "notionBuddyID") {
+                    fetchAccountData(notionBuddyID: notionBuddyID)
+                }
             }
         }
     }
-    
+
     func startWebAuthSession() {
         var urlString = "http://localhost:3000"
         // Check if a notion_buddy_id is stored in the user defaults
@@ -91,28 +96,18 @@ struct ContentView: View {
                 return
             }
             
-            print("Received account data:")
-            if let jsonString = String(data: data, encoding: .utf8) {
-                print(jsonString)
-            }
-
             do {
                 let decodedData = try JSONDecoder().decode(AccountsResponse.self, from: data)
                 DispatchQueue.main.async {
                     self.accounts = decodedData.accounts
                     self.selectedAccountIndex = self.accounts.indices.first ?? 0
-
-                    print("Accounts fetched: \(self.accounts.count)")
-                    print("First Account's Name: \(self.accounts.first?.name ?? "No accounts")")
-                    print("Selected account name: \(self.accounts[self.selectedAccountIndex].name)")
+                    self.isAuthenticated = true
                 }
             } catch {
                 print("Failed to decode account data. Error: \(error.localizedDescription)")
             }
         }.resume()
     }
-
-
 
     func displayAccountInfo(account: NotionAccount) -> some View {
         VStack {
@@ -135,12 +130,6 @@ struct ContentView: View {
     }
     
     var contextProvider = ContextProvider()
-}
-
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-    }
 }
 
 struct AccountsResponse: Decodable {

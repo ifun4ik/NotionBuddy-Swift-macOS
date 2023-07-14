@@ -11,7 +11,7 @@ struct NotionBuddyApp : App {
     
     var body : some Scene {
         WindowGroup{
-            ContentView()
+            LoginView()
                 .frame(minWidth : 552 , maxWidth : 552 , minHeight : 612 , maxHeight : 612)
         }.windowStyle(HiddenTitleBarWindowStyle())
          .windowToolbarStyle(UnifiedCompactWindowToolbarStyle())

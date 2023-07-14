@@ -10,12 +10,15 @@
 		8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D656A032A3C2F0E0065A725 /* WebView.swift */; };
 		8D9435AF2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */; };
 		8D9435B42A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435B22A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld */; };
-		8D9435B62A3A461F00F7CC62 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435B52A3A461F00F7CC62 /* ContentView.swift */; };
+		8D9435B62A3A461F00F7CC62 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435B52A3A461F00F7CC62 /* LoginView.swift */; };
 		8D9435B82A3A462000F7CC62 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D9435B72A3A462000F7CC62 /* Assets.xcassets */; };
 		8D9435BC2A3A462000F7CC62 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D9435BB2A3A462000F7CC62 /* Preview Assets.xcassets */; };
 		8D9435C62A3A462000F7CC62 /* NotionBuddySwiftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435C52A3A462000F7CC62 /* NotionBuddySwiftTests.swift */; };
 		8D9435D02A3A462000F7CC62 /* NotionBuddySwiftUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435CF2A3A462000F7CC62 /* NotionBuddySwiftUITests.swift */; };
 		8D9435D22A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435D12A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift */; };
+		8DCDA9002A5B5C07007B54E5 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCDA8FF2A5B5C07007B54E5 /* MainView.swift */; };
+		8DD642DC2A611C2A006B96AE /* SVGKit in Frameworks */ = {isa = PBXBuildFile; productRef = 8DD642DB2A611C2A006B96AE /* SVGKit */; };
+		8DD642DE2A611C2A006B96AE /* SVGKitSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 8DD642DD2A611C2A006B96AE /* SVGKitSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -40,7 +43,7 @@
 		8D9435AB2A3A461F00F7CC62 /* NotionBuddySwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NotionBuddySwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionBuddySwiftApp.swift; sourceTree = "<group>"; };
 		8D9435B32A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = NotionBuddySwift.xcdatamodel; sourceTree = "<group>"; };
-		8D9435B52A3A461F00F7CC62 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		8D9435B52A3A461F00F7CC62 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		8D9435B72A3A462000F7CC62 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8D9435B92A3A462000F7CC62 /* NotionBuddySwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NotionBuddySwift.entitlements; sourceTree = "<group>"; };
 		8D9435BB2A3A462000F7CC62 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -50,6 +53,7 @@
 		8D9435CF2A3A462000F7CC62 /* NotionBuddySwiftUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionBuddySwiftUITests.swift; sourceTree = "<group>"; };
 		8D9435D12A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionBuddySwiftUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		8D9435DE2A3A47C500F7CC62 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8DCDA8FF2A5B5C07007B54E5 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,6 +61,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8DD642DE2A611C2A006B96AE /* SVGKitSwift in Frameworks */,
+				8DD642DC2A611C2A006B96AE /* SVGKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,7 +108,8 @@
 			children = (
 				8D9435DE2A3A47C500F7CC62 /* Info.plist */,
 				8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */,
-				8D9435B52A3A461F00F7CC62 /* ContentView.swift */,
+				8D9435B52A3A461F00F7CC62 /* LoginView.swift */,
+				8DCDA8FF2A5B5C07007B54E5 /* MainView.swift */,
 				8D656A032A3C2F0E0065A725 /* WebView.swift */,
 				8D9435B72A3A462000F7CC62 /* Assets.xcassets */,
 				8D9435B92A3A462000F7CC62 /* NotionBuddySwift.entitlements */,
@@ -153,6 +160,10 @@
 			dependencies = (
 			);
 			name = NotionBuddySwift;
+			packageProductDependencies = (
+				8DD642DB2A611C2A006B96AE /* SVGKit */,
+				8DD642DD2A611C2A006B96AE /* SVGKitSwift */,
+			);
 			productName = NotionBuddySwift;
 			productReference = 8D9435AB2A3A461F00F7CC62 /* NotionBuddySwift.app */;
 			productType = "com.apple.product-type.application";
@@ -225,6 +236,9 @@
 				Base,
 			);
 			mainGroup = 8D9435A22A3A461F00F7CC62;
+			packageReferences = (
+				8DD642DA2A611C2A006B96AE /* XCRemoteSwiftPackageReference "SVGKit" */,
+			);
 			productRefGroup = 8D9435AC2A3A461F00F7CC62 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -269,7 +283,8 @@
 			files = (
 				8D9435B42A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld in Sources */,
 				8D9435AF2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift in Sources */,
-				8D9435B62A3A461F00F7CC62 /* ContentView.swift in Sources */,
+				8D9435B62A3A461F00F7CC62 /* LoginView.swift in Sources */,
+				8DCDA9002A5B5C07007B54E5 /* MainView.swift in Sources */,
 				8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -626,6 +641,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		8DD642DA2A611C2A006B96AE /* XCRemoteSwiftPackageReference "SVGKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SVGKit/SVGKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		8DD642DB2A611C2A006B96AE /* SVGKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8DD642DA2A611C2A006B96AE /* XCRemoteSwiftPackageReference "SVGKit" */;
+			productName = SVGKit;
+		};
+		8DD642DD2A611C2A006B96AE /* SVGKitSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8DD642DA2A611C2A006B96AE /* XCRemoteSwiftPackageReference "SVGKit" */;
+			productName = SVGKitSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCVersionGroup section */
 		8D9435B22A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld */ = {
