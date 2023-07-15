@@ -1,5 +1,6 @@
 import SwiftUI
-import SVGKit
+import SDWebImageSwiftUI
+import SDWebImageSVGCoder
 
 enum SearchResult: Identifiable {
     case database(Database)
@@ -17,8 +18,11 @@ struct Database: Identifiable, Decodable {
     let title: [DatabaseTitle]
     let icon: DatabaseIcon?
 
-    var emoji: String? {
-        return icon?.emoji ?? icon?.external?.url
+    var iconURL: URL? {
+        guard let iconURLString = icon?.external?.url else {
+            return nil
+        }
+        return URL(string: iconURLString)
     }
 
     var name: String {
@@ -57,47 +61,44 @@ struct MainView: View {
 
     var body: some View {
         VStack {
-            HStack {
+            HStack(spacing: 8) {
                 TextField("Search for a database...", text: $searchQuery)
-                    .padding()
-
                 Button(action: {
                     self.search(query: searchQuery)
                 }) {
                     Text("Search")
                 }
-            }
+            } .padding([.all], 8)
 
-            if isLoading {
-                ProgressView()
-            } else if searchResults.isEmpty {
-                Text("No results found.")
-                    .foregroundColor(.gray)
-            } else {
-                List(searchResults) { result in
-                    switch result {
-                    case .database(let database):
-                        HStack {
-                            if let emoji = database.emoji, let url = URL(string: emoji) {
-                                if let imageData = try? Data(contentsOf: url),
-                                   let uiImage = UIImage(data: imageData) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fit)
-                                        .frame(width: 24, height: 24)
-                                } else {
-                                    Text(database.emoji ?? "")
+                    if isLoading {
+                        ProgressView()
+                    } else if searchResults.isEmpty {
+                        Text("No results found.")
+                            .foregroundColor(.gray)
+                    } else {
+                        List(searchResults) { result in
+                            switch result {
+                            case .database(let database):
+                                HStack {
+                                    if let iconURL = database.iconURL {
+                                        WebImage(url: iconURL)
+                                            .resizable()
+                                            .frame(width: 24, height: 24)
+                                    } else if let emoji = database.icon?.emoji {
+                                        Text(emoji)
+                                            .font(.system(size: 24))
+                                    } else {
+                                        Text("🙈")
+                                            .font(.system(size: 24))
+                                    }
+                                    Text(database.name)
                                 }
-                            } else {
-                                Text(database.emoji ?? "")
                             }
-                            Text(database.name)
                         }
                     }
                 }
-            }
-        }
         .onAppear {
+            SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
             fetchDatabases()
         }
     }
@@ -132,7 +133,7 @@ struct MainView: View {
             }
         }.resume()
     }
-    
+
     func search(query: String) {
         isLoading = true
 
@@ -154,12 +155,6 @@ struct MainView: View {
         ]
         request.httpBody = try? JSONSerialization.data(withJSONObject: json)
 
-        print("Request URL: \(url)")
-        print("Request Headers: \(request.allHTTPHeaderFields ?? [:])")
-        if let body = request.httpBody, let bodyString = String(data: body, encoding: .utf8) {
-            print("Request Body: \(bodyString)")
-        }
-
         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 self.isLoading = false
@@ -170,17 +165,9 @@ struct MainView: View {
                 return
             }
 
-            if let httpResponse = response as? HTTPURLResponse {
-                print("Response Status Code: \(httpResponse.statusCode)")
-            }
-
             guard let data = data else {
                 print("Failed to retrieve search results.")
                 return
-            }
-
-            if let jsonString = String(data: data, encoding: .utf8) {
-                print("Response JSON: \(jsonString)")
             }
 
             do {

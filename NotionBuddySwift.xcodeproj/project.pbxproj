@@ -17,8 +17,8 @@
 		8D9435D02A3A462000F7CC62 /* NotionBuddySwiftUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435CF2A3A462000F7CC62 /* NotionBuddySwiftUITests.swift */; };
 		8D9435D22A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435D12A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift */; };
 		8DCDA9002A5B5C07007B54E5 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCDA8FF2A5B5C07007B54E5 /* MainView.swift */; };
-		8DD642DC2A611C2A006B96AE /* SVGKit in Frameworks */ = {isa = PBXBuildFile; productRef = 8DD642DB2A611C2A006B96AE /* SVGKit */; };
-		8DD642DE2A611C2A006B96AE /* SVGKitSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 8DD642DD2A611C2A006B96AE /* SVGKitSwift */; };
+		8DF13C2E2A6295330030F889 /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 8DF13C2D2A6295330030F889 /* SDWebImageSwiftUI */; };
+		8DF13C312A6296CD0030F889 /* SDWebImageSVGCoder in Frameworks */ = {isa = PBXBuildFile; productRef = 8DF13C302A6296CD0030F889 /* SDWebImageSVGCoder */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,8 +61,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8DD642DE2A611C2A006B96AE /* SVGKitSwift in Frameworks */,
-				8DD642DC2A611C2A006B96AE /* SVGKit in Frameworks */,
+				8DF13C2E2A6295330030F889 /* SDWebImageSwiftUI in Frameworks */,
+				8DF13C312A6296CD0030F889 /* SDWebImageSVGCoder in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -161,8 +161,8 @@
 			);
 			name = NotionBuddySwift;
 			packageProductDependencies = (
-				8DD642DB2A611C2A006B96AE /* SVGKit */,
-				8DD642DD2A611C2A006B96AE /* SVGKitSwift */,
+				8DF13C2D2A6295330030F889 /* SDWebImageSwiftUI */,
+				8DF13C302A6296CD0030F889 /* SDWebImageSVGCoder */,
 			);
 			productName = NotionBuddySwift;
 			productReference = 8D9435AB2A3A461F00F7CC62 /* NotionBuddySwift.app */;
@@ -238,6 +238,8 @@
 			mainGroup = 8D9435A22A3A461F00F7CC62;
 			packageReferences = (
 				8DD642DA2A611C2A006B96AE /* XCRemoteSwiftPackageReference "SVGKit" */,
+				8DF13C2C2A6295330030F889 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
+				8DF13C2F2A6296CD0030F889 /* XCRemoteSwiftPackageReference "SDWebImageSVGCoder" */,
 			);
 			productRefGroup = 8D9435AC2A3A461F00F7CC62 /* Products */;
 			projectDirPath = "";
@@ -651,18 +653,34 @@
 				minimumVersion = 3.0.0;
 			};
 		};
+		8DF13C2C2A6295330030F889 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SDWebImage/SDWebImageSwiftUI.git";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 2.2.0;
+			};
+		};
+		8DF13C2F2A6296CD0030F889 /* XCRemoteSwiftPackageReference "SDWebImageSVGCoder" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SDWebImage/SDWebImageSVGCoder.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		8DD642DB2A611C2A006B96AE /* SVGKit */ = {
+		8DF13C2D2A6295330030F889 /* SDWebImageSwiftUI */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 8DD642DA2A611C2A006B96AE /* XCRemoteSwiftPackageReference "SVGKit" */;
-			productName = SVGKit;
+			package = 8DF13C2C2A6295330030F889 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */;
+			productName = SDWebImageSwiftUI;
 		};
-		8DD642DD2A611C2A006B96AE /* SVGKitSwift */ = {
+		8DF13C302A6296CD0030F889 /* SDWebImageSVGCoder */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 8DD642DA2A611C2A006B96AE /* XCRemoteSwiftPackageReference "SVGKit" */;
-			productName = SVGKitSwift;
+			package = 8DF13C2F2A6296CD0030F889 /* XCRemoteSwiftPackageReference "SDWebImageSVGCoder" */;
+			productName = SDWebImageSVGCoder;
 		};
 /* End XCSwiftPackageProductDependency section */
 
