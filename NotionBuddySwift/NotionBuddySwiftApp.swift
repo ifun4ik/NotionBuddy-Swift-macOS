@@ -3,11 +3,11 @@ import SwiftUI
 @main
 struct NotionBuddyApp : App {
 //MARK: This part wipes user defaults each time the app being launched
-//    init() {
-//            if let bundleID = Bundle.main.bundleIdentifier {
-//                UserDefaults.standard.removePersistentDomain(forName: bundleID)
-//            }
-//        }
+    init() {
+            if let bundleID = Bundle.main.bundleIdentifier {
+                UserDefaults.standard.removePersistentDomain(forName: bundleID)
+            }
+        }
     
     var body : some Scene {
         WindowGroup{

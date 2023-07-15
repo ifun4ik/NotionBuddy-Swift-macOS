@@ -16,9 +16,11 @@
 		8D9435C62A3A462000F7CC62 /* NotionBuddySwiftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435C52A3A462000F7CC62 /* NotionBuddySwiftTests.swift */; };
 		8D9435D02A3A462000F7CC62 /* NotionBuddySwiftUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435CF2A3A462000F7CC62 /* NotionBuddySwiftUITests.swift */; };
 		8D9435D22A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435D12A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift */; };
-		8DCDA9002A5B5C07007B54E5 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCDA8FF2A5B5C07007B54E5 /* MainView.swift */; };
+		8DCDA9002A5B5C07007B54E5 /* TemplateNavigatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCDA8FF2A5B5C07007B54E5 /* TemplateNavigatorView.swift */; };
 		8DF13C2E2A6295330030F889 /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 8DF13C2D2A6295330030F889 /* SDWebImageSwiftUI */; };
 		8DF13C312A6296CD0030F889 /* SDWebImageSVGCoder in Frameworks */ = {isa = PBXBuildFile; productRef = 8DF13C302A6296CD0030F889 /* SDWebImageSVGCoder */; };
+		8DF13C332A63475A0030F889 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF13C322A63475A0030F889 /* MainView.swift */; };
+		8DF13C352A6349D00030F889 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF13C342A6349D00030F889 /* SessionManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,7 +55,9 @@
 		8D9435CF2A3A462000F7CC62 /* NotionBuddySwiftUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionBuddySwiftUITests.swift; sourceTree = "<group>"; };
 		8D9435D12A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionBuddySwiftUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		8D9435DE2A3A47C500F7CC62 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		8DCDA8FF2A5B5C07007B54E5 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		8DCDA8FF2A5B5C07007B54E5 /* TemplateNavigatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateNavigatorView.swift; sourceTree = "<group>"; };
+		8DF13C322A63475A0030F889 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		8DF13C342A6349D00030F889 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,7 +113,9 @@
 				8D9435DE2A3A47C500F7CC62 /* Info.plist */,
 				8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */,
 				8D9435B52A3A461F00F7CC62 /* LoginView.swift */,
-				8DCDA8FF2A5B5C07007B54E5 /* MainView.swift */,
+				8DF13C342A6349D00030F889 /* SessionManager.swift */,
+				8DCDA8FF2A5B5C07007B54E5 /* TemplateNavigatorView.swift */,
+				8DF13C322A63475A0030F889 /* MainView.swift */,
 				8D656A032A3C2F0E0065A725 /* WebView.swift */,
 				8D9435B72A3A462000F7CC62 /* Assets.xcassets */,
 				8D9435B92A3A462000F7CC62 /* NotionBuddySwift.entitlements */,
@@ -284,10 +290,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				8D9435B42A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld in Sources */,
+				8DF13C332A63475A0030F889 /* MainView.swift in Sources */,
 				8D9435AF2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift in Sources */,
 				8D9435B62A3A461F00F7CC62 /* LoginView.swift in Sources */,
-				8DCDA9002A5B5C07007B54E5 /* MainView.swift in Sources */,
+				8DCDA9002A5B5C07007B54E5 /* TemplateNavigatorView.swift in Sources */,
 				8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */,
+				8DF13C352A6349D00030F889 /* SessionManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
