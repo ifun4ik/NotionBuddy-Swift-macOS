@@ -1,20 +1,27 @@
-//
-//  SessionManager.swift
-//  NotionBuddySwift
-//
-//  Created by Harry on 16.07.2023.
-//
-
 import Foundation
 import AuthenticationServices
 
 class SessionManager: ObservableObject {
+    private let userDefaultsLogger = UserDefaultsLogger()
+
     @Published var webAuthSession: ASWebAuthenticationSession?
     @Published var accounts: [NotionAccount] = []
     @Published var selectedAccountIndex: Int = 0
     @Published var isAuthenticated: Bool = false
     var contextProvider = ContextProvider()
-    
+
+    init() {
+        logUserDefaults()
+    }
+
+    func logUserDefaults() {
+        if let notionBuddyID = UserDefaults.standard.string(forKey: "notionBuddyID") {
+            print("notionBuddyID: \(notionBuddyID)")
+        } else {
+            print("notionBuddyID not found in UserDefaults")
+        }
+    }
+
     func startWebAuthSession() {
         var urlString = "http://localhost:3000"
         // Check if a notion_buddy_id is stored in the user defaults
@@ -47,7 +54,7 @@ class SessionManager: ObservableObject {
         webAuthSession?.presentationContextProvider = contextProvider
         webAuthSession?.start()
     }
-    
+
     func fetchAccountData(notionBuddyID: String) {
         let urlString = "http://localhost:3000/get_accounts?notion_buddy_id=\(notionBuddyID)"
 
@@ -61,12 +68,12 @@ class SessionManager: ObservableObject {
                 print("Failed to fetch account data. Error: \(error.localizedDescription)")
                 return
             }
-            
+
             guard let data = data else {
                 print("Failed to retrieve account data.")
                 return
             }
-            
+
             do {
                 let decodedData = try JSONDecoder().decode(AccountsResponse.self, from: data)
                 DispatchQueue.main.async {
