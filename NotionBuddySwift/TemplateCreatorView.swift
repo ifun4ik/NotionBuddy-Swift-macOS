@@ -21,34 +21,79 @@ struct TemplateCreatorView: View {
     @State private var templateName: String = ""
     @State private var templateFields: [TemplateFieldViewData] = []
     @Environment(\.managedObjectContext) private var managedObjectContext
-
-
+    
     var body: some View {
-        VStack {
-            TextField("Template Name", text: $templateName)
+        VStack(spacing: 20) {
+            HStack {
+                Text("Template Name:")
+                    .font(.headline)
+                TextField("Enter a name", text: $templateName)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.leading, 8)
+            }
+            .padding(.horizontal, 20)
+            
+            Divider()
+            
             List {
-                ForEach(templateFields.indices, id: \.self) { index in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(templateFields[index].name)
-                            Text(templateFields[index].fieldType)
+                ForEach(templateFields) { field in
+                    VStack(alignment: .leading) {
+                        Text("Field Name:")
+                            .font(.headline)
+                        Text(field.name)
+                            .font(.body)
+                        
+                        Text("Field Type:")
+                            .font(.headline)
+                        Text(field.fieldType)
+                            .font(.body)
+                        
+                        switch field.kind {
+                        case .mandatory:
+                            TextField("Default Value", text: Binding(
+                                get: { field.defaultValue as? String ?? "" },
+                                set: { _ = $0 } // No assignment needed
+                            ))
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        
+                        case .optional:
+                            Toggle("Is Optional", isOn: Binding(
+                                get: { field.defaultValue as? Bool ?? false },
+                                set: { _ = $0 } // No assignment needed
+                            ))
+                        
+                        case .skip:
+                            Text("Skip field")
                         }
-                        Picker("Kind", selection: $templateFields[index].kind) {
-                            ForEach(FieldKind.allCases) { kind in
-                                Text(kind.rawValue.capitalized).tag(kind)
-                            }
-                        }
-                        TextField("Default Value", text: Binding(
-                            get: { templateFields[index].defaultValue as? String ?? "" },
-                            set: { templateFields[index].defaultValue = $0 }
-                        ))
                     }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 20)
+//                    .background(Color.secondary.opacity(0.2))
+//                    .cornerRadius(8)
                 }
             }
-            Button("Save Template") {
-                saveTemplate()
+            .listStyle(.inset(alternatesRowBackgrounds: true))
+//            .padding(.horizontal, -20)
+            
+            Spacer()
+            
+            Button(action: saveTemplate) {
+                Text("Save Template")
+                    .foregroundColor(.white)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 40)
+                    .background(Color.blue)
+                    .cornerRadius(8)
             }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.bottom, 20)
         }
+        .padding(.vertical, 20)
+        .padding(.horizontal, 40)
+        .frame(width: 500)
+        .background(Color(NSColor.windowBackgroundColor))
+        .cornerRadius(16)
+        .shadow(radius: 10)
         .onAppear {
             createFieldViewData(from: database)
         }
@@ -89,6 +134,4 @@ struct TemplateCreatorView: View {
             print("Failed to save template: \(error)")
         }
     }
-
-
 }

@@ -92,8 +92,15 @@ struct DatabaseNavigatorView: View {
 
     var body: some View {
         VStack {
+            Text("Pick a database")
+                .font(.title)
+                .fontWeight(.bold)
+                .padding(.top, 16)
+
             HStack(spacing: 8) {
-                TextField("Search for a database...", text: $searchQuery)
+                TextField("Search for a database...", text: $searchQuery, onCommit: {
+                    self.search(query: searchQuery)
+                })
                 Button(action: {
                     self.search(query: searchQuery)
                 }) {
@@ -125,6 +132,12 @@ struct DatabaseNavigatorView: View {
                     }
                 }
             }
+
+            Text("Don't hesitate using search, even if you see nothing here 😉")
+                .italic()
+                .foregroundColor(.gray)
+                .font(.caption)
+                .padding(.all, 16)
         }
         .onAppear {
             SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
@@ -134,6 +147,7 @@ struct DatabaseNavigatorView: View {
             if let selectedDatabase = selectedDatabase {
                 TemplateCreatorView(database: selectedDatabase)
                     .environment(\.managedObjectContext, self.managedObjectContext)
+                    .frame(width: 500, height: 400)
             }
         }
     }

@@ -37,7 +37,22 @@ struct TemplateNavigatorView: View {
             }
         }
         .sheet(isPresented: $showDatabaseNavigatorView) {
-            DatabaseNavigatorView(accessToken: accessToken)
+            FixedSizeSheet(width: 400, height: 400) {
+                DatabaseNavigatorView(accessToken: accessToken)
+            }
         }
+
+    }
+}
+
+
+struct FixedSizeSheet<Content: View>: View {
+    let width: CGFloat
+    let height: CGFloat
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .frame(width: width, height: height)
     }
 }
