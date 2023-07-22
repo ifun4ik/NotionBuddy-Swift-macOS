@@ -1,4 +1,7 @@
 import SwiftUI
+import SDWebImageSwiftUI
+import SDWebImageSVGCoder
+import CoreData
 
 enum FieldKind: String, CaseIterable, Identifiable {
     case mandatory
@@ -8,18 +11,26 @@ enum FieldKind: String, CaseIterable, Identifiable {
     var id: String { self.rawValue }
 }
 
-struct TemplateFieldViewData: Identifiable {
-    var id = UUID()
-    var name: String
-    var fieldType: String
+class TemplateFieldViewData: ObservableObject {
+    let id = UUID()
+    let name: String
+    let fieldType: String
     var kind: FieldKind = .mandatory
-    var defaultValue: Any? = nil
+    @Published var defaultValue: String
+    var options: [String]? = nil
+
+    init(name: String, fieldType: String, defaultValue: String, options: [String]? = nil) {
+        self.name = name
+        self.fieldType = fieldType
+        self.defaultValue = defaultValue
+        self.options = options
+    }
 }
 
 struct TemplateCreatorView: View {
     var database: Database
     @State private var templateName: String = ""
-    @State private var templateFields: [TemplateFieldViewData] = []
+    @State var templateFields: [TemplateFieldViewData] = []
     @Environment(\.managedObjectContext) private var managedObjectContext
     
     var body: some View {
@@ -36,44 +47,56 @@ struct TemplateCreatorView: View {
             Divider()
             
             List {
-                ForEach(templateFields) { field in
+                ForEach(templateFields.indices, id: \.self) { index in
                     VStack(alignment: .leading) {
-                        Text("Field Name:")
-                            .font(.headline)
-                        Text(field.name)
-                            .font(.body)
+                        HStack {
+                            Text("Field Name:")
+                                .font(.headline)
+                            Text(templateFields[index].name)
+                                .font(.body)
+                        }
+                        HStack {
+                            Text("Field Type:")
+                                .font(.headline)
+                            Text(templateFields[index].fieldType)
+                                .font(.body)
+                        }
                         
-                        Text("Field Type:")
-                            .font(.headline)
-                        Text(field.fieldType)
-                            .font(.body)
-                        
-                        switch field.kind {
-                        case .mandatory:
-                            TextField("Default Value", text: Binding(
-                                get: { field.defaultValue as? String ?? "" },
-                                set: { _ = $0 } // No assignment needed
-                            ))
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                        
-                        case .optional:
-                            Toggle("Is Optional", isOn: Binding(
-                                get: { field.defaultValue as? Bool ?? false },
-                                set: { _ = $0 } // No assignment needed
-                            ))
-                        
-                        case .skip:
-                            Text("Skip field")
+                        switch templateFields[index].fieldType {
+                        case "checkbox":
+                            Toggle(isOn: Binding(get: {
+                                Bool(templateFields[index].defaultValue) ?? false
+                            }, set: {
+                                templateFields[index].defaultValue = String($0)
+                            })) {
+                                Text("Default Value")
+                            }
+                        case "date":
+                            DatePicker("", selection: Binding(get: {
+                                Date()
+                            }, set: {
+                                templateFields[index].defaultValue = "\($0)"
+                            }))
+                                .labelsHidden()
+                        case "email", "phone_number", "rich_text", "title", "url":
+                            TextField("Default Value", text: $templateFields[index].defaultValue)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        case "multi_select", "select", "status":
+                            Picker(selection: $templateFields[index].defaultValue, label: Text("Default Value")) {
+                                ForEach(templateFields[index].options ?? [], id: \.self) { option in
+                                    Text(option).tag(option)
+                                }
+                            }
+                        default:
+                            TextField("Default Value", text: .constant(""))
+                                .disabled(true)
                         }
                     }
                     .padding(.vertical, 8)
                     .padding(.horizontal, 20)
-//                    .background(Color.secondary.opacity(0.2))
-//                    .cornerRadius(8)
                 }
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
-//            .padding(.horizontal, -20)
             
             Spacer()
             
@@ -102,7 +125,18 @@ struct TemplateCreatorView: View {
     func createFieldViewData(from database: Database) {
         if let properties = database.properties {
             for (name, property) in properties {
-                templateFields.append(TemplateFieldViewData(name: name, fieldType: property.type))
+                if let selectOptions = property.select?.options {
+                    let options = selectOptions.map { $0.name }
+                    let defaultValue = options.first ?? ""
+                    templateFields.append(TemplateFieldViewData(name: name, fieldType: property.type, defaultValue: defaultValue, options: options))
+                } else if let statusOptions = property.status?.options {
+                    let options = statusOptions.map { $0.name }
+                    let defaultValue = options.first ?? ""
+                    templateFields.append(TemplateFieldViewData(name: name, fieldType: property.type, defaultValue: defaultValue, options: options))
+                } else {
+                    let defaultValue = ""
+                    templateFields.append(TemplateFieldViewData(name: name, fieldType: property.type, defaultValue: defaultValue))
+                }
             }
         }
     }
@@ -119,7 +153,7 @@ struct TemplateCreatorView: View {
             let newField = TemplateField(context: managedObjectContext)
             newField.id = fieldViewData.id
             newField.name = fieldViewData.name
-            newField.defaultValue = fieldViewData.defaultValue as? String
+            newField.defaultValue = fieldViewData.defaultValue
             newField.order = Int16(index)
             newField.kind = fieldViewData.kind.rawValue
             

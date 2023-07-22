@@ -52,29 +52,71 @@ struct Database: Identifiable, Decodable {
 
     struct Property: Decodable {
         let id: String
-        let name: String
         let type: String
+        let name: String
+        let select: SelectOptions?
+        let multiSelect: MultiSelectOptions?
         let people: People?
         let checkbox: Checkbox?
         let number: Number?
         let richText: RichText?
+        let title: Title?
+        let url: Url?
+        let status: Status?
+        
+        struct Status: Decodable {
+                let options: [Option]
+                let groups: [Group]
+                
+                struct Option: Decodable {
+                    let id: String
+                    let name: String
+                    let color: String
+                }
+                
+                struct Group: Decodable {
+                    let id: String
+                    let name: String
+                    let color: String
+                    let option_ids: [String]
+                }
+            }
 
-        struct People: Decodable {
-            // Add relevant properties
-        }
+        struct People: Decodable {}
 
-        struct Checkbox: Decodable {
-            // Add relevant properties
-        }
+        struct Checkbox: Decodable {}
 
         struct Number: Decodable {
             let format: String
         }
 
-        struct RichText: Decodable {
-            // Add relevant properties
+        struct RichText: Decodable {}
+
+        struct Title: Decodable {}
+
+        struct Url: Decodable {}
+
+        struct SelectOptions: Decodable {
+            let options: [Option]
+
+            struct Option: Decodable {
+                let id: String
+                let name: String
+                let color: String
+            }
+        }
+
+        struct MultiSelectOptions: Decodable {
+            let options: [Option]
+
+            struct Option: Decodable {
+                let id: String
+                let name: String
+                let color: String
+            }
         }
     }
+
 }
 
 struct DatabasesResponse: Decodable {
@@ -236,10 +278,36 @@ struct DatabaseNavigatorView: View {
                 print("Property Name: \(name)")
                 print("Property ID: \(property.id)")
                 print("Property Type: \(property.type)")
-                // Log additional relevant properties based on the property type
+
+                if let select = property.select {
+                    print("Select Options:")
+                    for option in select.options {
+                        print("Option Name: \(option.name)")
+                        print("Option ID: \(option.id)")
+                        print("Option Color: \(option.color)")
+                    }
+                }
+                
+                // Add this check
+                if let status = property.status {
+                    print("Status Options:")
+                    for option in status.options {
+                        print("Option Name: \(option.name)")
+                        print("Option ID: \(option.id)")
+                        print("Option Color: \(option.color)")
+                    }
+                    print("Status Groups:")
+                    for group in status.groups {
+                        print("Group Name: \(group.name)")
+                        print("Group ID: \(group.id)")
+                        print("Group Color: \(group.color)")
+                        print("Group Option IDs: \(group.option_ids)")
+                    }
+                }
             }
         }
     }
+
 }
 
 struct DatabaseListItemView: View {
