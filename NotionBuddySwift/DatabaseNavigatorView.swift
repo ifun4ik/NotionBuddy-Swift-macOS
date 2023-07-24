@@ -130,6 +130,8 @@ struct DatabaseNavigatorView: View {
     @State private var isLoading: Bool = false
     @State private var selectedDatabase: Database? = nil
     @State private var showTemplateCreator = false
+    @Environment(\.presentationMode) var presentationMode
+    @Binding var shouldDismiss: Bool
     @Environment(\.managedObjectContext) private var managedObjectContext
 
     var body: some View {
@@ -187,9 +189,14 @@ struct DatabaseNavigatorView: View {
         }
         .sheet(isPresented: $showTemplateCreator) {
             if let selectedDatabase = selectedDatabase {
-                TemplateCreatorView(database: selectedDatabase)
+                TemplateCreatorView(database: selectedDatabase, shouldDismiss: self.$shouldDismiss)
                     .environment(\.managedObjectContext, self.managedObjectContext)
                     .frame(width: 500, height: 400)
+            }
+        }
+        .onChange(of: shouldDismiss) { newValue in
+            if newValue {
+                self.presentationMode.wrappedValue.dismiss()
             }
         }
     }

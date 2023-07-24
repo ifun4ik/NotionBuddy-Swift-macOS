@@ -31,7 +31,9 @@ struct TemplateCreatorView: View {
     var database: Database
     @State private var templateName: String = ""
     @State var templateFields: [TemplateFieldViewData] = []
+    @Binding var shouldDismiss: Bool
     @Environment(\.managedObjectContext) private var managedObjectContext
+    @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
     
     var body: some View {
         VStack(spacing: 20) {
@@ -164,6 +166,8 @@ struct TemplateCreatorView: View {
         // Save the context
         do {
             try managedObjectContext.save()
+            self.presentationMode.wrappedValue.dismiss()
+            self.shouldDismiss = true
         } catch {
             print("Failed to save template: \(error)")
         }

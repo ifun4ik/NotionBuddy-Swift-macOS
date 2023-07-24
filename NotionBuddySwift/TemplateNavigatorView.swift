@@ -7,6 +7,8 @@ struct TemplateNavigatorView: View {
     var templates: FetchedResults<Template>
     @Environment(\.managedObjectContext) private var managedObjectContext
     @State private var showDatabaseNavigatorView = false
+    @State private var selectedTemplate: Template? = nil
+    @State private var shouldDismiss = false
     var accessToken: String
     
     var body: some View {
@@ -19,10 +21,31 @@ struct TemplateNavigatorView: View {
             } else {
                 List {
                     ForEach(templates) { template in
-                        NavigationLink(destination: Text("Template Detail View")) {
+                        NavigationLink(destination: EditTemplateView(template: template).environment(\.managedObjectContext, self.managedObjectContext)) {
                             Text(template.name ?? "Unnamed Template")
                         }
+                        .contextMenu {
+                            Button(action: {
+                                self.selectedTemplate = template
+                            }) {
+                                Text("Edit")
+                                Image(systemName: "pencil")
+                            }
+                            
+                            Button(action: {
+                                self.managedObjectContext.delete(template)
+                                do {
+                                    try self.managedObjectContext.save()
+                                } catch {
+                                    // handle the Core Data error
+                                }
+                            }) {
+                                Text("Delete")
+                                Image(systemName: "trash")
+                            }
+                        }
                     }
+                    .onDelete(perform: deleteTemplate)
                 }
             }
         }
@@ -38,13 +61,50 @@ struct TemplateNavigatorView: View {
         }
         .sheet(isPresented: $showDatabaseNavigatorView) {
             FixedSizeSheet(width: 400, height: 400) {
-                DatabaseNavigatorView(accessToken: accessToken)
+                DatabaseNavigatorView(accessToken: accessToken, shouldDismiss: self.$shouldDismiss)
             }
         }
 
     }
+    
+    private func deleteTemplate(at offsets: IndexSet) {
+        for index in offsets {
+            let template = templates[index]
+            managedObjectContext.delete(template)
+        }
+        do {
+            try managedObjectContext.save()
+        } catch {
+            // handle the Core Data error
+        }
+    }
 }
 
+struct EditTemplateView: View {
+    @Environment(\.managedObjectContext) private var managedObjectContext
+    @ObservedObject var template: Template
+    
+    var body: some View {
+        Form {
+            TextField("Template Name", text: $template.name.bound)
+            // Add other fields as needed
+        }
+        .navigationTitle("Edit Template")
+        .toolbar {
+            ToolbarItem {
+                Button(action: {
+                    do {
+                        try managedObjectContext.save()
+                    } catch {
+                        // handle the Core Data error
+                    }
+                }) {
+                    Text("Save")
+                }
+            }
+        }
+    }
+}
 
 struct FixedSizeSheet<Content: View>: View {
     let width: CGFloat
@@ -54,5 +114,12 @@ struct FixedSizeSheet<Content: View>: View {
     var body: some View {
         content
             .frame(width: width, height: height)
+    }
+}
+
+extension Optional where Wrapped == String {
+    var bound: String {
+        get { return self ?? "" }
+        set { self = newValue }
     }
 }
