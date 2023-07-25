@@ -24,7 +24,8 @@ struct SidebarNavigationView: View {
                     .tag(NavigationItem.templates)
                 }
             }
-            .listStyle(SidebarListStyle())
+            .listStyle(.sidebar)
+//            .listStyle(SidebarListStyle())
             .navigationTitle("Navigation")
 
             Text("Select a navigation item from the sidebar")

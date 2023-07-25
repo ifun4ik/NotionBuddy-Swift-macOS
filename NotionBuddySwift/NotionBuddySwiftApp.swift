@@ -1,6 +1,7 @@
 import SwiftUI
 
 @main
+
 struct NotionBuddyApp: App {
     let persistenceController = PersistenceController.shared
     let sessionManager = SessionManager()
@@ -9,19 +10,19 @@ struct NotionBuddyApp: App {
         WindowGroup {
             if UserDefaults.standard.string(forKey: "notionBuddyID") != nil {
                 SidebarNavigationView(sessionManager: sessionManager)
-                    .frame(minWidth: 552, idealWidth: 552, minHeight: 612, idealHeight: 612)
+                    .frame(minWidth: 560, idealWidth: 560, minHeight: 612, idealHeight: 612)
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
                     .onAppear {
                         sessionManager.fetchAccountData(notionBuddyID: UserDefaults.standard.string(forKey: "notionBuddyID")!)
                     }
             } else {
                 LoginView(sessionManager: sessionManager)
-                    .frame(minWidth: 552, idealWidth: 552, minHeight: 612, idealHeight: 612)
+                    .frame(minWidth: 560, idealWidth: 560, minHeight: 612, idealHeight: 612)
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
             }
         }
-        .windowStyle(HiddenTitleBarWindowStyle())
-        .windowToolbarStyle(UnifiedCompactWindowToolbarStyle())
+        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unifiedCompact)
         .commands {
             CommandGroup(replacing: .newItem) {}
         }

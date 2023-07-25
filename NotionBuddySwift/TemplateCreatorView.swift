@@ -36,7 +36,7 @@ struct TemplateCreatorView: View {
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             HStack {
                 Text("Template Name:")
                     .font(.headline)
@@ -44,7 +44,7 @@ struct TemplateCreatorView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.leading, 8)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             
             Divider()
             
@@ -95,12 +95,11 @@ struct TemplateCreatorView: View {
                         }
                     }
                     .padding(.vertical, 8)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                 }
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
-            
-            Spacer()
+            .cornerRadius(8)
             
             Button(action: saveTemplate) {
                 Text("Save Template")
@@ -111,14 +110,14 @@ struct TemplateCreatorView: View {
                     .cornerRadius(8)
             }
             .buttonStyle(PlainButtonStyle())
-            .padding(.bottom, 20)
         }
+        
         .padding(.vertical, 20)
         .padding(.horizontal, 40)
         .frame(width: 500)
         .background(Color(NSColor.windowBackgroundColor))
-        .cornerRadius(16)
-        .shadow(radius: 10)
+//        .cornerRadius(16)
+//        .shadow(radius: 10)
         .onAppear {
             createFieldViewData(from: database)
         }

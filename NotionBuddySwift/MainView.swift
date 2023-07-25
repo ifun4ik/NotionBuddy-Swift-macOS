@@ -50,6 +50,9 @@ struct MainView: View {
                     Text("Add New Account")
                 }
             }
+            .toolbar{
+                Spacer()
+            }
         }
     }
 }
