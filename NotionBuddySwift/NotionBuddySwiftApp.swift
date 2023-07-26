@@ -1,20 +1,16 @@
 import SwiftUI
 
 @main
-
 struct NotionBuddyApp: App {
     let persistenceController = PersistenceController.shared
-    let sessionManager = SessionManager()
+    @ObservedObject var sessionManager = SessionManager()
 
     var body: some Scene {
         WindowGroup {
-            if UserDefaults.standard.string(forKey: "notionBuddyID") != nil {
+            if sessionManager.isAuthenticated {
                 SidebarNavigationView(sessionManager: sessionManager)
                     .frame(minWidth: 560, idealWidth: 560, minHeight: 612, idealHeight: 612)
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                    .onAppear {
-                        sessionManager.fetchAccountData(notionBuddyID: UserDefaults.standard.string(forKey: "notionBuddyID")!)
-                    }
             } else {
                 LoginView(sessionManager: sessionManager)
                     .frame(minWidth: 560, idealWidth: 560, minHeight: 612, idealHeight: 612)
@@ -28,6 +24,7 @@ struct NotionBuddyApp: App {
         }
     }
 }
+
 
 
 

@@ -7,7 +7,11 @@ class SessionManager: ObservableObject {
     @Published var webAuthSession: ASWebAuthenticationSession?
     @Published var accounts: [NotionAccount] = []
     @Published var selectedAccountIndex: Int = 0
-    @Published var isAuthenticated: Bool = false
+    @Published var isAuthenticated: Bool = false {
+        didSet {
+            print("isAuthenticated changed to \(isAuthenticated)")
+        }
+    }
     var contextProvider = ContextProvider()
 
     init() {
