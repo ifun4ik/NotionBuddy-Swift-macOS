@@ -99,7 +99,9 @@ struct FieldRow: View {
 }
 
 struct TemplateCreatorView: View {
-    var database: Database
+    var databaseId: String
+    var accessToken: String
+    @State private var database: Database? = nil
     @State private var templateName: String = ""
     @State var templateFields: [TemplateFieldViewData] = []
     @Binding var shouldDismiss: Bool
@@ -146,10 +148,43 @@ struct TemplateCreatorView: View {
         .frame(width: 500)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
-            createFieldViewData(from: database)
+            fetchDatabase()
         }
     }
     
+    func fetchDatabase() {
+        guard let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)/query") else {
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.addValue("2021-05-13", forHTTPHeaderField: "Notion-Version")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("Failed to fetch database. Error: \(error.localizedDescription)")
+                return
+            }
+
+            guard let data = data else {
+                print("Failed to retrieve database.")
+                return
+            }
+
+            do {
+                let decodedData = try JSONDecoder().decode(Database.self, from: data)
+                DispatchQueue.main.async {
+                    self.database = decodedData
+                    self.createFieldViewData(from: decodedData)
+                }
+            } catch {
+                print("Failed to decode database. Error: \(error.localizedDescription)")
+            }
+        }.resume()
+    }
+
     func createFieldViewData(from database: Database) {
         if let properties = database.properties {
             for (name, property) in properties {
@@ -182,6 +217,7 @@ struct TemplateCreatorView: View {
         newTemplate.id = UUID()
         newTemplate.name = templateName
         newTemplate.order = Int16(templateFields.count)
+        newTemplate.databaseId = databaseId // Set the databaseId field
         
         // Create TemplateField entities for each field
         for fieldViewData in templateFields {

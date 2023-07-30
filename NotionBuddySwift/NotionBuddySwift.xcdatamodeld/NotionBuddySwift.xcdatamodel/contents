@@ -4,6 +4,7 @@
         <attribute name="timestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
     </entity>
     <entity name="Template" representedClassName=".Template" syncable="YES" codeGenerationType="class">
+        <attribute name="databaseId" attributeType="String" defaultValueString="0"/>
         <attribute name="defaultValue" optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromDataTransformer"/>
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="name" optional="YES" attributeType="String"/>

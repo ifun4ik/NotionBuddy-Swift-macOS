@@ -9,6 +9,8 @@ struct TemplateNavigatorView: View {
     @State private var showDatabaseNavigatorView = false
     @State private var selectedTemplate: Template? = nil
     @State private var shouldDismiss = false
+    @State private var showingEditView = false
+
     var accessToken: String
     
     var body: some View {
@@ -27,6 +29,7 @@ struct TemplateNavigatorView: View {
                         .contextMenu {
                             Button(action: {
                                 self.selectedTemplate = template
+                                self.showingEditView = true
                             }) {
                                 Text("Edit")
                                 Image(systemName: "pencil")
@@ -64,6 +67,17 @@ struct TemplateNavigatorView: View {
                 DatabaseNavigatorView(accessToken: accessToken, shouldDismiss: self.$shouldDismiss)
             }
         }
+        .sheet(isPresented: $showingEditView) {
+            if let selectedDatabase = selectedTemplate, let databaseId = selectedDatabase.databaseId {
+                TemplateCreatorView(databaseId: databaseId, accessToken: accessToken, shouldDismiss: self.$shouldDismiss)
+                    .environment(\.managedObjectContext, self.managedObjectContext)
+                    .frame(width: 500, height: 400)
+            } else {
+                Text("No database selected. Please select a database first.")
+                    .frame(width: 500, height: 400, alignment: .center)
+            }
+        }
+
 
     }
     

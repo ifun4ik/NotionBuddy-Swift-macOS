@@ -189,7 +189,7 @@ struct DatabaseNavigatorView: View {
         }
         .sheet(isPresented: $showTemplateCreator) {
             if let selectedDatabase = selectedDatabase {
-                TemplateCreatorView(database: selectedDatabase, shouldDismiss: self.$shouldDismiss)
+                TemplateCreatorView(databaseId: selectedDatabase.id, accessToken: accessToken, shouldDismiss: self.$shouldDismiss)
                     .environment(\.managedObjectContext, self.managedObjectContext)
                     .frame(width: 500, height: 400)
             }
