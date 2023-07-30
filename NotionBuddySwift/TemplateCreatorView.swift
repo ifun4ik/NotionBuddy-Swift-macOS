@@ -182,6 +182,7 @@ struct TemplateCreatorView: View {
         newTemplate.id = UUID()
         newTemplate.name = templateName
         newTemplate.order = Int16(templateFields.count)
+        newTemplate.databaseId = database.id
         
         // Create TemplateField entities for each field
         for fieldViewData in templateFields {
@@ -201,10 +202,36 @@ struct TemplateCreatorView: View {
             try managedObjectContext.save()
             self.presentationMode.wrappedValue.dismiss()
             self.shouldDismiss = true
+            logTemplates()
         } catch {
             print("Failed to save template: \(error)")
         }
     }
+    
+    func logTemplates() {
+            let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Template")
+            do {
+                if let results = try managedObjectContext.fetch(fetchRequest) as? [Template] {
+                    for template in results {
+                        print("Template Name: \(template.name ?? "")")
+                        print("Order: \(template.order)")
+                        print("Database ID: \(template.databaseId ?? "")")
+                        print("Fields:")
+                        if let fields = template.fields as? Set<TemplateField> {
+                            for field in fields {
+                                print("  Name: \(field.name ?? "")")
+                                print("  Default Value: \(field.defaultValue ?? "")")
+                                print("  Order: \(field.order)")
+                                print("  Kind: \(field.kind ?? "")")
+                            }
+                        }
+                    }
+                }
+            } catch let error as NSError {
+                print("Could not fetch templates. \(error), \(error.userInfo)")
+            }
+        }
+
     
     func canSave() -> Bool {
         if templateName.isEmpty || !allMandatoryFieldsHaveDefaultValue() {

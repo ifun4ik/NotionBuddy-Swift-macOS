@@ -7,8 +7,11 @@ struct TemplateNavigatorView: View {
     var templates: FetchedResults<Template>
     @Environment(\.managedObjectContext) private var managedObjectContext
     @State private var showDatabaseNavigatorView = false
+    @State private var showEditTemplateView = false
     @State private var selectedTemplate: Template? = nil
     @State private var shouldDismiss = false
+    @State private var showingEditView = false
+
     var accessToken: String
     
     var body: some View {
@@ -21,12 +24,11 @@ struct TemplateNavigatorView: View {
             } else {
                 List {
                     ForEach(templates) { template in
-                        NavigationLink(destination: EditTemplateView(template: template).environment(\.managedObjectContext, self.managedObjectContext)) {
-                            Text(template.name ?? "Unnamed Template")
-                        }
+                        Text(template.name ?? "Unnamed Template")
                         .contextMenu {
                             Button(action: {
                                 self.selectedTemplate = template
+                                self.showEditTemplateView = true
                             }) {
                                 Text("Edit")
                                 Image(systemName: "pencil")
@@ -44,26 +46,33 @@ struct TemplateNavigatorView: View {
                                 Image(systemName: "trash")
                             }
                         }
-                    }
-                    .onDelete(perform: deleteTemplate)
                 }
+                .onDelete(perform: deleteTemplate)
             }
         }
-        .navigationTitle("Templates")
-        .toolbar {
-            ToolbarItem {
-                Button(action: {
-                    showDatabaseNavigatorView = true
-                }) {
-                    Image(systemName: "plus")
-                }
+    }
+    .navigationTitle("Templates")
+    .toolbar {
+        ToolbarItem {
+            Button(action: {
+                showDatabaseNavigatorView = true
+            }) {
+                Image(systemName: "plus")
             }
         }
-        .sheet(isPresented: $showDatabaseNavigatorView) {
-            FixedSizeSheet(width: 400, height: 400) {
-                DatabaseNavigatorView(accessToken: accessToken, shouldDismiss: self.$shouldDismiss)
-            }
+    }
+    .sheet(isPresented: $showDatabaseNavigatorView) {
+        FixedSizeSheet(width: 400, height: 400) {
+            DatabaseNavigatorView(accessToken: accessToken, shouldDismiss: self.$shouldDismiss)
         }
+    }
+    .sheet(isPresented: $showEditTemplateView, onDismiss: {
+        self.selectedTemplate = nil
+    }) {
+        if let templateToEdit = self.selectedTemplate {
+            EditTemplateView(template: templateToEdit).environment(\.managedObjectContext, self.managedObjectContext)
+        }
+    }
 
     }
     
@@ -76,32 +85,6 @@ struct TemplateNavigatorView: View {
             try managedObjectContext.save()
         } catch {
             // handle the Core Data error
-        }
-    }
-}
-
-struct EditTemplateView: View {
-    @Environment(\.managedObjectContext) private var managedObjectContext
-    @ObservedObject var template: Template
-    
-    var body: some View {
-        Form {
-            TextField("Template Name", text: $template.name.bound)
-            // Add other fields as needed
-        }
-        .navigationTitle("Edit Template")
-        .toolbar {
-            ToolbarItem {
-                Button(action: {
-                    do {
-                        try managedObjectContext.save()
-                    } catch {
-                        // handle the Core Data error
-                    }
-                }) {
-                    Text("Save")
-                }
-            }
         }
     }
 }
