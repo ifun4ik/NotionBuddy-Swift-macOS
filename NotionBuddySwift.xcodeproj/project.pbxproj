@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		8D0873372A65CAE9002F54A6 /* TemplateCreatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0873362A65CAE9002F54A6 /* TemplateCreatorView.swift */; };
-		8D08733B2A65ED8A002F54A6 /* TemplateDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D08733A2A65ED8A002F54A6 /* TemplateDetailView.swift */; };
+		8D08733B2A65ED8A002F54A6 /* EditTemplateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D08733A2A65ED8A002F54A6 /* EditTemplateView.swift */; };
 		8D1F719A2A649C6100F5C29C /* UserDefaultsLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D1F71992A649C6100F5C29C /* UserDefaultsLogger.swift */; };
 		8D23D79E2A6420FD00A58C7C /* TemplateNavigatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D23D79D2A6420FD00A58C7C /* TemplateNavigatorView.swift */; };
 		8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D656A032A3C2F0E0065A725 /* WebView.swift */; };
@@ -47,7 +47,7 @@
 
 /* Begin PBXFileReference section */
 		8D0873362A65CAE9002F54A6 /* TemplateCreatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateCreatorView.swift; sourceTree = "<group>"; };
-		8D08733A2A65ED8A002F54A6 /* TemplateDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateDetailView.swift; sourceTree = "<group>"; };
+		8D08733A2A65ED8A002F54A6 /* EditTemplateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditTemplateView.swift; sourceTree = "<group>"; };
 		8D1F71992A649C6100F5C29C /* UserDefaultsLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefaultsLogger.swift; sourceTree = "<group>"; };
 		8D23D79D2A6420FD00A58C7C /* TemplateNavigatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateNavigatorView.swift; sourceTree = "<group>"; };
 		8D656A032A3C2F0E0065A725 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
@@ -100,7 +100,6 @@
 		8D9435A22A3A461F00F7CC62 = {
 			isa = PBXGroup;
 			children = (
-				8D08733A2A65ED8A002F54A6 /* TemplateDetailView.swift */,
 				8D9435AD2A3A461F00F7CC62 /* NotionBuddySwift */,
 				8D9435C42A3A462000F7CC62 /* NotionBuddySwiftTests */,
 				8D9435CE2A3A462000F7CC62 /* NotionBuddySwiftUITests */,
@@ -122,6 +121,7 @@
 			isa = PBXGroup;
 			children = (
 				8D9435DE2A3A47C500F7CC62 /* Info.plist */,
+				8D08733A2A65ED8A002F54A6 /* EditTemplateView.swift */,
 				8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */,
 				8D9435B52A3A461F00F7CC62 /* LoginView.swift */,
 				8D23D79D2A6420FD00A58C7C /* TemplateNavigatorView.swift */,
@@ -313,7 +313,7 @@
 				8DC5166A2A64934500FB72C8 /* SidebarNavigationView.swift in Sources */,
 				8DCDA9002A5B5C07007B54E5 /* DatabaseNavigatorView.swift in Sources */,
 				8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */,
-				8D08733B2A65ED8A002F54A6 /* TemplateDetailView.swift in Sources */,
+				8D08733B2A65ED8A002F54A6 /* EditTemplateView.swift in Sources */,
 				8D1F719A2A649C6100F5C29C /* UserDefaultsLogger.swift in Sources */,
 				8DF13C352A6349D00030F889 /* SessionManager.swift in Sources */,
 			);
