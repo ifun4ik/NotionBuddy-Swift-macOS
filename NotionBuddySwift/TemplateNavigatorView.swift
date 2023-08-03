@@ -61,16 +61,18 @@ struct TemplateNavigatorView: View {
             }
         }
     }
+    .sheet(item: $selectedTemplate, onDismiss: {
+        self.selectedTemplate = nil
+    }) { selectedTemplate in
+        EditTemplateView(viewModel: TemplateViewModel(template: selectedTemplate))
+            .environment(\.managedObjectContext, self.managedObjectContext)
+    }
+
+        
+        
     .sheet(isPresented: $showDatabaseNavigatorView) {
         FixedSizeSheet(width: 400, height: 400) {
             DatabaseNavigatorView(accessToken: accessToken, shouldDismiss: self.$shouldDismiss)
-        }
-    }
-    .sheet(isPresented: $showEditTemplateView, onDismiss: {
-        self.selectedTemplate = nil
-    }) {
-        if let templateToEdit = self.selectedTemplate {
-            EditTemplateView(template: templateToEdit).environment(\.managedObjectContext, self.managedObjectContext)
         }
     }
 

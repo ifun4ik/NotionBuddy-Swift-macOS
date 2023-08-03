@@ -23,6 +23,7 @@
 		8D9435D22A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435D12A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift */; };
 		8DC5166A2A64934500FB72C8 /* SidebarNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC516692A64934500FB72C8 /* SidebarNavigationView.swift */; };
 		8DCDA9002A5B5C07007B54E5 /* DatabaseNavigatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCDA8FF2A5B5C07007B54E5 /* DatabaseNavigatorView.swift */; };
+		8DEA959E2A7C49910007836F /* TemplateViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DEA959D2A7C49910007836F /* TemplateViewModel.swift */; };
 		8DF13C2E2A6295330030F889 /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 8DF13C2D2A6295330030F889 /* SDWebImageSwiftUI */; };
 		8DF13C312A6296CD0030F889 /* SDWebImageSVGCoder in Frameworks */ = {isa = PBXBuildFile; productRef = 8DF13C302A6296CD0030F889 /* SDWebImageSVGCoder */; };
 		8DF13C332A63475A0030F889 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF13C322A63475A0030F889 /* MainView.swift */; };
@@ -68,6 +69,7 @@
 		8D9435DE2A3A47C500F7CC62 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8DC516692A64934500FB72C8 /* SidebarNavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarNavigationView.swift; sourceTree = "<group>"; };
 		8DCDA8FF2A5B5C07007B54E5 /* DatabaseNavigatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseNavigatorView.swift; sourceTree = "<group>"; };
+		8DEA959D2A7C49910007836F /* TemplateViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateViewModel.swift; sourceTree = "<group>"; };
 		8DF13C322A63475A0030F889 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		8DF13C342A6349D00030F889 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -128,6 +130,7 @@
 				8D9435B52A3A461F00F7CC62 /* LoginView.swift */,
 				8D23D79D2A6420FD00A58C7C /* TemplateNavigatorView.swift */,
 				8D8B95172A76964100DEDFFF /* EditTemplateView.swift */,
+				8DEA959D2A7C49910007836F /* TemplateViewModel.swift */,
 				8DC516692A64934500FB72C8 /* SidebarNavigationView.swift */,
 				8DF13C342A6349D00030F889 /* SessionManager.swift */,
 				8D1F71992A649C6100F5C29C /* UserDefaultsLogger.swift */,
@@ -319,6 +322,7 @@
 				8D08733B2A65ED8A002F54A6 /* TemplateDetailView.swift in Sources */,
 				8D1F719A2A649C6100F5C29C /* UserDefaultsLogger.swift in Sources */,
 				8D8B95182A76964100DEDFFF /* EditTemplateView.swift in Sources */,
+				8DEA959E2A7C49910007836F /* TemplateViewModel.swift in Sources */,
 				8DF13C352A6349D00030F889 /* SessionManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
