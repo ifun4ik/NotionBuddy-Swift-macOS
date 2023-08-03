@@ -8,9 +8,6 @@ class TemplateViewModel: ObservableObject {
 
     init(template: Template) {
         self.template = template
-    }
-
-    func loadTemplateData() {
         self.templateName = template.name ?? ""
         let templateFieldsArray = fetchFields(for: template, in: template.managedObjectContext!)
         let sortedTemplateFields = templateFieldsArray.sorted(by: { $0.order < $1.order })
@@ -22,6 +19,7 @@ class TemplateViewModel: ObservableObject {
                 order: $0.order
             )
         }
+        print("Initialized TemplateViewModel with fields: \(self.templateFields)")
     }
 
     func fetchFields(for template: Template, in managedObjectContext: NSManagedObjectContext) -> [TemplateField] {
