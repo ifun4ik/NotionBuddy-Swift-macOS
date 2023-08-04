@@ -4,7 +4,7 @@ import SDWebImageSVGCoder
 import CoreData
 
 struct EditTemplateView: View {
-    @ObservedObject var viewModel: TemplateViewModel
+    @StateObject var viewModel: TemplateViewModel
     @Environment(\.managedObjectContext) private var managedObjectContext
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
 
@@ -21,15 +21,11 @@ struct EditTemplateView: View {
 
             Divider()
 
-            List {
+            VStack {
                 ForEach(viewModel.templateFields) { field in
-//                    FieldRow(field: field)
-                    Text("Field: \(field.name)")
+                    EditFieldRow(field: field)
                 }
-                .onMove(perform: move)
             }
-            .listStyle(.inset(alternatesRowBackgrounds: true))
-            .cornerRadius(8)
 
             Button(action: updateTemplate) {
                 Text("Update Template")
@@ -101,12 +97,3 @@ struct EditTemplateView: View {
         return true
     }
 }
-
-
-extension TemplateFieldViewData: CustomStringConvertible {
-    var description: String {
-        return "TemplateFieldViewData(name: \(name), fieldType: \(fieldType), defaultValue: \(defaultValue), order: \(order))"
-    }
-}
-
-
