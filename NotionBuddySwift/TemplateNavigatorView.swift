@@ -64,7 +64,7 @@ struct TemplateNavigatorView: View {
     .sheet(item: $selectedTemplate, onDismiss: {
         self.selectedTemplate = nil
     }) { selectedTemplate in
-        EditTemplateView(viewModel: TemplateViewModel(template: selectedTemplate))
+        EditTemplateView(viewModel: TemplateViewModel(template: selectedTemplate), accessToken: accessToken)
             .environment(\.managedObjectContext, self.managedObjectContext)
     }
 

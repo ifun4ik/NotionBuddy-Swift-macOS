@@ -4,19 +4,41 @@ import CoreData
 class EditableTemplateFieldViewData: ObservableObject, Identifiable {
     let id = UUID()
     let name: String
-    let fieldType: String
-    @Published var kind: FieldKind
+    let kind: String
+    @Published var conflict: String?
+    @Published var priority: String
     @Published var defaultValue: String
     @Published var order: Int16
     var options: [String]? = nil
 
     init(templateField: TemplateField) {
         self.name = templateField.name ?? ""
-        self.fieldType = templateField.kind ?? ""
+        self.kind = templateField.kind ?? ""
+        self.priority = templateField.priority ?? FieldPriority.optional.rawValue
         self.defaultValue = templateField.defaultValue ?? ""
         self.order = templateField.order
-        self.kind = FieldKind(rawValue: templateField.kind ?? "") ?? .optional
+        self.options = templateField.options as? [String]
+
+    checkFieldOptionsConflicts(with: templateField)}
+        // Check for field options conflicts
+        
+
+    func checkFieldOptionsConflicts(with originalField: TemplateField) {
+        // Assuming options are represented as an array of strings
+        // This logic should be tailored to match the actual representation of field options
+        guard let originalOptions = originalField.options as? [String],
+              let currentOptions = self.options else { return }
+
+        // Compare original options with current options and identify conflicts
+        let conflicts = originalOptions.filter { !currentOptions.contains($0) }
+
+        // If conflicts are detected, store a warning message
+        if !conflicts.isEmpty {
+            self.conflict = "Conflict"
+        }
     }
+
+
 }
 
 class TemplateViewModel: ObservableObject {
@@ -45,67 +67,3 @@ class TemplateViewModel: ObservableObject {
     }
 }
 
-struct EditFieldRow: View {
-    @ObservedObject var field: EditableTemplateFieldViewData
-
-    var body: some View {
-        VStack(alignment: .leading) {
-            HStack {
-                Text("Field Name:")
-                    .font(.headline)
-                Text(field.name)
-                    .font(.body)
-            }
-            HStack {
-                Text("Field Type:")
-                    .font(.headline)
-                Text(field.fieldType)
-                    .font(.body)
-            }
-            
-            Picker("Field Priority", selection: $field.kind) {
-                ForEach(FieldKind.allCases) { kind in
-                    Text(kind.rawValue.capitalized).tag(kind)
-                }
-            }
-            .pickerStyle(SegmentedPickerStyle())
-            
-            switch field.fieldType {
-            case "checkbox":
-                Toggle(isOn: Binding(get: {
-                    Bool(field.defaultValue) ?? false
-                }, set: {
-                    field.defaultValue = String($0)
-                })) {
-                    Text("Default Value")
-                }
-                .disabled(field.kind == .skip)
-            case "date":
-                DatePicker("", selection: Binding(get: {
-                    Date()
-                }, set: {
-                    field.defaultValue = "\($0)"
-                }))
-                    .labelsHidden()
-                    .disabled(field.kind == .skip)
-            case "email", "phone_number", "rich_text", "title", "url":
-                TextField("Default Value", text: $field.defaultValue)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .disabled(field.kind == .skip)
-            case "multi_select", "select", "status":
-                Picker("Default Value", selection: $field.defaultValue) {
-                    ForEach(field.options ?? [], id: \.self) { option in
-                        Text(option).tag(option)
-                    }
-                }
-                .disabled(field.kind == .skip)
-            default:
-                TextField("Default Value", text: $field.defaultValue)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .disabled(field.kind == .skip)
-            }
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 16)
-    }
-}
