@@ -25,11 +25,14 @@ struct EditTemplateView: View {
 
             Divider()
 
-            VStack {
-                ForEach(viewModel.templateFields) { field in
-                    EditFieldRow(field: field)
-                }
+            List {
+              ForEach(viewModel.templateFields, id: \.id) { field in
+                EditFieldRow(field: field)
+              }
             }
+            .listStyle(.inset(alternatesRowBackgrounds: true))
+            .cornerRadius(8)
+            .frame(minHeight: 400)
 
             Button(action: updateTemplate) {
                 Text("Update Template")
