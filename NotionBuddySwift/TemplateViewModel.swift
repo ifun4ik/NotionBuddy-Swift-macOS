@@ -12,8 +12,8 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
     var options: [String]? = nil
 
     init(templateField: TemplateField) {
-        self.name = templateField.name ?? ""
         self.kind = templateField.kind ?? ""
+        self.name = templateField.name ?? ""
         self.priority = templateField.priority ?? FieldPriority.optional.rawValue
         self.defaultValue = templateField.defaultValue ?? ""
         self.order = templateField.order

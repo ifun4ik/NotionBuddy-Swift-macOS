@@ -38,13 +38,10 @@ class TemplateFieldViewData: ObservableObject, Identifiable {
 }
 
 struct FieldRow: View {
-
   @ObservedObject var field: TemplateFieldViewData
 
   var body: some View {
-
     VStack(alignment: .leading) {
-    
       HStack {
       
         Text("Field Name:")
@@ -450,10 +447,7 @@ DispatchQueue.global().async {
   func logTemplates() {
 
     let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Template")
-
-
     do {
-    
       if let results = try viewContext.fetch(fetchRequest) as? [Template] {
       
         for template in results {

@@ -118,15 +118,16 @@ struct EditTemplateView: View {
 
     func fetchDatabase() {
         guard let databaseId = viewModel.template.databaseId,
-              let url = URL(string: "https://api.notion.com/v1/databases/33a44fbb00ac4249bb386829e222b5f1/query") else {
+              let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)/query") else {
+            print("Invalid URL or database ID.")
             return
         }
 
         var request = URLRequest(url: url)
+        request.httpMethod = "POST"
         request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.addValue("2021-05-13", forHTTPHeaderField: "Notion-Version")
-        print(request)
-        print(accessToken)
+
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 print("Failed to fetch database. Error: \(error.localizedDescription)")
@@ -139,17 +140,27 @@ struct EditTemplateView: View {
             }
 
             do {
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
+                    print(json)
+                }
+                
                 let decodedData = try JSONDecoder().decode(DatabasesResponse.self, from: data)
                 DispatchQueue.main.async {
                     self.database = decodedData.results.first
                     self.compareDatabaseWithTemplate()
                 }
-                print(decodedData)
+            } catch let DecodingError.keyNotFound(key, context) {
+                print("Key '\(key)' not found:", context.debugDescription)
+                print("codingPath:", context.codingPath)
             } catch {
-                print("Failed to decode database. Error: \(error.localizedDescription)")
+                print("Unexpected error: \(error).")
             }
         }.resume()
     }
+
+
+
+
 
     func compareDatabaseWithTemplate() {
         guard let databaseProperties = database?.properties else {
