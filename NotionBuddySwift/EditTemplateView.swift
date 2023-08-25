@@ -118,49 +118,37 @@ struct EditTemplateView: View {
 
     func fetchDatabase() {
         guard let databaseId = viewModel.template.databaseId,
-              let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)/query") else {
+              let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)") else {
             print("Invalid URL or database ID.")
             return
         }
 
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "GET"
         request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.addValue("2021-05-13", forHTTPHeaderField: "Notion-Version")
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
-                print("Failed to fetch database. Error: \(error.localizedDescription)")
+                print("Failed to fetch database properties. Error: \(error.localizedDescription)")
                 return
             }
 
             guard let data = data else {
-                print("Failed to retrieve database.")
+                print("Failed to retrieve database properties.")
                 return
             }
 
             do {
-                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
-                    print(json)
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                   let properties = json["properties"] as? [String: Any] {
+                    print(properties) // Printing only the properties of the database
                 }
-                
-                let decodedData = try JSONDecoder().decode(DatabasesResponse.self, from: data)
-                DispatchQueue.main.async {
-                    self.database = decodedData.results.first
-                    self.compareDatabaseWithTemplate()
-                }
-            } catch let DecodingError.keyNotFound(key, context) {
-                print("Key '\(key)' not found:", context.debugDescription)
-                print("codingPath:", context.codingPath)
             } catch {
                 print("Unexpected error: \(error).")
             }
         }.resume()
     }
-
-
-
-
 
     func compareDatabaseWithTemplate() {
         guard let databaseProperties = database?.properties else {
