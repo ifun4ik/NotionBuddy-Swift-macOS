@@ -9,7 +9,7 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
     @Published var priority: String
     @Published var defaultValue: String
     @Published var order: Int16
-    var options: [String]? = nil
+    @Published var options: [String]? = nil
 
     init(templateField: TemplateField) {
         self.kind = templateField.kind ?? ""

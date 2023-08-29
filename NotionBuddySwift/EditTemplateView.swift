@@ -10,7 +10,52 @@ struct EditTemplateView: View {
 
     @State private var database: Database?
     @State private var conflicts: [String] = []
-    var accessToken: String
+
+    
+    /// Compares the fetched Notion database properties with the existing template
+    func compareFetchedDatabaseWithTemplate(fetchedData: [String: Any]) {
+        // Reset conflicts
+        conflicts.removeAll()
+        
+        print("Function compareFetchedDatabaseWithTemplate called.")
+        print("Fetched Data: \(fetchedData)")
+        
+        // Loop through fetched data and compare with template
+        for (key, fetchedValue) in fetchedData {
+            print("Checking fetched key: \(key)")
+            if let templateField = viewModel.templateFields.first(where: { $0.name == key }) {
+                if let fetchedDict = fetchedValue as? [String: Any] {
+                    if templateField.kind != (fetchedDict["type"] as? String) {
+                        conflicts.append("Kind mismatch for \(key). Template: \(templateField.kind ?? "Unknown"), Fetched: \(String(describing: fetchedDict["type"]))")
+                    }
+                    if let fetchedOptions = fetchedDict["options"] as? [[String: Any]] {
+                        let templateOptions = templateField.options ?? []
+                        if !Set(templateOptions).isSubset(of: Set(fetchedOptions.compactMap { $0["name"] as? String })) {
+                            conflicts.append("Options mismatch for \(key).")
+                        }
+                    }
+                }
+            } else {
+                conflicts.append("\(key) is not present in the template.")
+            }
+        }
+        
+        // Loop through template fields and compare with fetched data
+        for templateField in viewModel.templateFields {
+            if fetchedData[templateField.name] == nil {
+                conflicts.append("\(templateField.name) is not present in the fetched data.")
+            } else if let fetchedDict = fetchedData[templateField.name] as? [String: Any] {
+                let fetchedOptions = (fetchedDict["options"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
+                let templateOptions = templateField.options ?? []
+                if !Set(fetchedOptions ?? []).isSubset(of: Set(templateOptions)) {
+                    conflicts.append("New options added in \(templateField.name).")
+                }
+            }
+        }
+        
+        print("Conflicts found: \(conflicts)")
+    }
+var accessToken: String
 
     var body: some View {
         VStack(spacing: 16) {
@@ -20,7 +65,17 @@ struct EditTemplateView: View {
                 TextField("Enter a name", text: $viewModel.templateName)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.leading, 8)
+            
+            // Section to display conflicts
+            if !conflicts.isEmpty {
+                Section(header: Text("Conflicts")) {
+                    List(conflicts, id: \.self) { conflict in
+                        Text(conflict)
+                            .foregroundColor(.red)
+                    }
+                }
             }
+}
             .padding(.horizontal, 16)
 
             Divider()
@@ -143,32 +198,56 @@ struct EditTemplateView: View {
                 if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                    let properties = json["properties"] as? [String: Any] {
                     print(properties) // Printing only the properties of the database
+                    compareFetchedDatabaseWithTemplate(fetchedData: properties)
                 }
             } catch {
                 print("Unexpected error: \(error).")
             }
         }.resume()
     }
+    
+    func logTemplates() {
 
-    func compareDatabaseWithTemplate() {
-        guard let databaseProperties = database?.properties else {
-            return
-        }
-
-        var conflicts: [String] = []
-        for fieldViewData in viewModel.templateFields {
-            if let databaseProperty = databaseProperties[fieldViewData.name],
-               databaseProperty.type != fieldViewData.kind {
-                conflicts.append("Field '\(fieldViewData.name)' has different types in database and template.")
+      let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Template")
+      do {
+        if let results = try managedObjectContext.fetch(fetchRequest) as? [Template] {
+        
+          for template in results {
+          
+            print("Template Name: \(template.name ?? "")")
+            print("Order: \(template.order)")
+            print("Database ID: \(template.databaseId ?? "")")
+            print("Fields:")
+            
+            if let fields = template.fields as? Set<TemplateField> {
+            
+              for field in fields {
+              
+                print("  Name: \(field.name ?? "")")
+                print("  Default Value: \(field.defaultValue ?? "")")
+                print("  Order: \(field.order)")
+                print("  Kind: \(field.kind ?? "")")
+                
+              }
+              
             }
+            
+          }
+          
         }
-        self.conflicts = conflicts
+        
+      } catch let error as NSError {
+      
+        print("Could not fetch templates. \(error), \(error.userInfo)")
+      
+      }
+
     }
 }
 
 struct EditFieldRow: View {
     @ObservedObject var field: EditableTemplateFieldViewData
-
+    
     var body: some View {
         VStack(alignment: .leading) {
             HStack {
@@ -200,7 +279,7 @@ struct EditFieldRow: View {
                 })) {
                     Text("Default Value")
                 }
-                .disabled(field.kind == "skip")
+                .disabled(field.priority == "skip")
             case "date":
                 DatePicker("", selection: Binding(get: {
                     Date()
@@ -208,22 +287,29 @@ struct EditFieldRow: View {
                     field.defaultValue = "\($0)"
                 }))
                     .labelsHidden()
-                    .disabled(field.kind == "skip")
+                    .disabled(field.priority == "skip")
             case "email", "phone_number", "rich_text", "title", "url":
                 TextField("Default Value", text: $field.defaultValue)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .disabled(field.kind == "skip")
+                    .disabled(field.priority == "skip")
             case "multi_select", "select", "status":
                 Picker("Default Value", selection: $field.defaultValue) {
-                    ForEach(field.options ?? [], id: \.self) { option in
-                        Text(option).tag(option)
-                    }
+//                  ForEach(pickerValues ?? ["No Options"], id: \.self) { option in
+//                    Text(option).tag(option)
+//                  }
+                    Text(field.defaultValue).tag(field.defaultValue)
                 }
-                .disabled(field.kind == "skip")
+                .disabled(field.priority == "skip")
+
+                // Explicitly set selection to match default value
+                .onAppear {
+                    field.defaultValue = field.defaultValue
+                    
+                  }
             default:
                 TextField("Default Value", text: $field.defaultValue)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .disabled(field.kind == "skip")
+                    .disabled(field.priority == "skip")
             }
         }
         .padding(.vertical, 8)
