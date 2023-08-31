@@ -10,6 +10,7 @@ struct EditTemplateView: View {
 
     @State private var database: Database?
     @State private var conflicts: [String] = []
+    @State private var fetchedProps: [String : Any] = [:]
 
     
     /// Compares the fetched Notion database properties with the existing template
@@ -18,7 +19,6 @@ struct EditTemplateView: View {
         conflicts.removeAll()
         
         print("Function compareFetchedDatabaseWithTemplate called.")
-        print("Fetched Data: \(fetchedData)")
         
         // Loop through fetched data and compare with template
         for (key, fetchedValue) in fetchedData {
@@ -82,7 +82,10 @@ var accessToken: String
 
             List {
               ForEach(viewModel.templateFields, id: \.id) { field in
-                EditFieldRow(field: field)
+                EditFieldRow(field: field, json: fetchedProps)
+                      .onAppear{
+                        fetchDatabase()
+                      }
               }
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
@@ -100,6 +103,17 @@ var accessToken: String
             .buttonStyle(PlainButtonStyle())
             .disabled(!canSave())
             .help(viewModel.templateName.isEmpty ? "Template name is required" : "")
+            
+            Button(action: logTemplates) {
+                Text("Log Template")
+                    .foregroundColor(.white)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 40)
+                    .background(Color.blue)
+                    .cornerRadius(8)
+            }
+            .buttonStyle(.borderless)
+
 
             if !conflicts.isEmpty {
                 Text("Conflicts Detected:")
@@ -197,13 +211,66 @@ var accessToken: String
             do {
                 if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                    let properties = json["properties"] as? [String: Any] {
-                    print(properties) // Printing only the properties of the database
                     compareFetchedDatabaseWithTemplate(fetchedData: properties)
+                    fetchedProps = properties
+                    fetchOptions(fetchedData: properties)
                 }
             } catch {
                 print("Unexpected error: \(error).")
             }
+            
         }.resume()
+    }
+    
+    //Parameters
+    func fetchOptions(fetchedData: [String: Any]) {
+
+      print("Function fetchOptions called")
+
+      for (key, fetchedValue) in fetchedData {
+
+        print("Key: \(key)")
+        print("Value: \(fetchedValue)")
+        
+        if let templateField = viewModel.templateFields.first(where: {
+          $0.name == key && ($0.kind == "select" || $0.kind == "multiselect" || $0.kind == "status")
+        }) {
+        
+          print("Handling field: \(key)")
+          
+            if let fetchedDict = fetchedValue as? [String: Any] {
+
+              print("Fetched dict: \(fetchedDict)")
+
+              if let selectDict = fetchedDict["select"] as? [String: Any],
+                 let options = selectDict["options"] as? [[String: Any]] {
+
+                print("Options: \(options)")
+              
+              let optionNames = options.compactMap({ $0["name"] as? String })
+              
+              templateField.options = optionNames
+              
+              print("Fetched options: \(optionNames)")
+              
+            } else {
+            
+              print("No options found in fetched dict")
+              
+            }
+            
+          } else {
+          
+            print("Fetched value is not a dictionary")
+            
+          }
+          
+          fetchedProps[key] = templateField.options
+          print("Fetched Props: \(fetchedProps)")
+        }
+        
+      }
+      
     }
     
     func logTemplates() {
@@ -227,7 +294,6 @@ var accessToken: String
                 print("  Default Value: \(field.defaultValue ?? "")")
                 print("  Order: \(field.order)")
                 print("  Kind: \(field.kind ?? "")")
-                
               }
               
             }
@@ -247,6 +313,7 @@ var accessToken: String
 
 struct EditFieldRow: View {
     @ObservedObject var field: EditableTemplateFieldViewData
+    @State var json: [String: Any]
     
     var body: some View {
         VStack(alignment: .leading) {
@@ -293,19 +360,23 @@ struct EditFieldRow: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .disabled(field.priority == "skip")
             case "multi_select", "select", "status":
-                Picker("Default Value", selection: $field.defaultValue) {
-//                  ForEach(pickerValues ?? ["No Options"], id: \.self) { option in
-//                    Text(option).tag(option)
-//                  }
-                    Text(field.defaultValue).tag(field.defaultValue)
+                if let jsonOptions = json[field.name] as? [String: Any], let options = jsonOptions["options"] as? [[String: Any]] {
+                    let optionNames = options.compactMap { $0["name"] as? String }
+                    ForEach(optionNames, id: \.self) { option in
+                        Text("Option: \(option)")
+                    }
+                    Picker("Default Value", selection: $field.defaultValue) {
+                      ForEach(field.options ?? [], id: \.self) { option in
+                          Text(option).tag(option)
+                      }
+                    }
+                } else {
+                    Picker("Default Value", selection: $field.defaultValue) {
+                      ForEach(field.options ?? [], id: \.self) { option in
+                          Text(option).tag(option)
+                      }
+                    }
                 }
-                .disabled(field.priority == "skip")
-
-                // Explicitly set selection to match default value
-                .onAppear {
-                    field.defaultValue = field.defaultValue
-                    
-                  }
             default:
                 TextField("Default Value", text: $field.defaultValue)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -314,5 +385,8 @@ struct EditFieldRow: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 16)
+        .onAppear{
+            print("⚠️JSON: \(json)")
+        }
     }
 }
