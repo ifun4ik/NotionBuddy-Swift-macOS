@@ -28,7 +28,7 @@ struct TemplateNavigatorView: View {
                         .contextMenu {
                             Button(action: {
                                 self.selectedTemplate = template
-                                self.showEditTemplateView = true
+                                self.showEditTemplateView.toggle()
                             }) {
                                 Text("Edit")
                                 Image(systemName: "pencil")
@@ -86,7 +86,7 @@ struct TemplateNavigatorView: View {
         do {
             try managedObjectContext.save()
         } catch {
-            // handle the Core Data error
+            print("Core Data error: \(error.localizedDescription)")
         }
     }
 }

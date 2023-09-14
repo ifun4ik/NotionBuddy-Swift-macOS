@@ -4,7 +4,7 @@ import CoreData
 class EditableTemplateFieldViewData: ObservableObject, Identifiable {
     let id = UUID()
     let name: String
-    let kind: String
+    var kind: String
     @Published var conflict: String?
     @Published var priority: String
     @Published var defaultValue: String
@@ -21,7 +21,6 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
 
     checkFieldOptionsConflicts(with: templateField)}
         // Check for field options conflicts
-        
 
     func checkFieldOptionsConflicts(with originalField: TemplateField) {
         // Assuming options are represented as an array of strings
@@ -37,13 +36,13 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
             self.conflict = "Conflict"
         }
     }
-
+    
 
 }
 
 class TemplateViewModel: ObservableObject {
     @Published var template: Template
-    @Published var templateFields: [EditableTemplateFieldViewData] = []
+    var templateFields: [EditableTemplateFieldViewData] = []
     @Published var templateName: String = ""
 
     init(template: Template) {
@@ -61,9 +60,10 @@ class TemplateViewModel: ObservableObject {
             let fields = try managedObjectContext.fetch(fetchRequest) as! [TemplateField]
             return fields
         } catch {
-            print("Failed to fetch fields: \(error)")
+            print("Failed to fetch fields: \(error.localizedDescription)")
             return []
         }
     }
+    
 }
 

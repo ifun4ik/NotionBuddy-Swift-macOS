@@ -3,6 +3,18 @@ import SDWebImageSwiftUI
 import SDWebImageSVGCoder
 import CoreData
 
+extension Array where Element == String {
+    func toNSData() -> NSData? {
+        do {
+            let data = try JSONSerialization.data(withJSONObject: self, options: [])
+            return data as NSData
+        } catch {
+            print("Failed to convert array to NSData: \(error)")
+            return nil
+        }
+    }
+}
+
 struct EditTemplateView: View {
     @StateObject var viewModel: TemplateViewModel
     @Environment(\.managedObjectContext) private var managedObjectContext
@@ -11,18 +23,15 @@ struct EditTemplateView: View {
     @State private var database: Database?
     @State private var conflicts: [String] = []
     @State private var fetchedProps: [String : Any] = [:]
+    @State private var forceRefresh: Bool = false
 
-    
     /// Compares the fetched Notion database properties with the existing template
     func compareFetchedDatabaseWithTemplate(fetchedData: [String: Any]) {
         // Reset conflicts
         conflicts.removeAll()
         
-        print("Function compareFetchedDatabaseWithTemplate called.")
-        
         // Loop through fetched data and compare with template
         for (key, fetchedValue) in fetchedData {
-            print("Checking fetched key: \(key)")
             if let templateField = viewModel.templateFields.first(where: { $0.name == key }) {
                 if let fetchedDict = fetchedValue as? [String: Any] {
                     if templateField.kind != (fetchedDict["type"] as? String) {
@@ -55,7 +64,71 @@ struct EditTemplateView: View {
         
         print("Conflicts found: \(conflicts)")
     }
-var accessToken: String
+    
+    func resetTemplateToNotion() {
+        fetchDatabase()
+        print(fetchedProps)
+        
+        for (key, fetchedValue) in fetchedProps {
+            if let fetchedDict = fetchedValue as? [String: Any] {
+                let kind = fetchedDict["type"] as? String ?? ""
+                let options = (fetchedDict["options"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
+
+                if let templateField = viewModel.templateFields.first(where: { $0.name == key }) {
+                    templateField.kind = kind
+                    templateField.options = options
+                }
+            }
+        }
+        
+        if let oldFields = viewModel.template.fields as? Set<TemplateField> {
+            for oldField in oldFields {
+                managedObjectContext.delete(oldField)
+            }
+        }
+
+        for fieldViewData in viewModel.templateFields {
+            let newField = TemplateField(context: managedObjectContext)
+            newField.id = fieldViewData.id
+            newField.name = fieldViewData.name
+            newField.defaultValue = fieldViewData.defaultValue
+            newField.order = fieldViewData.order
+            newField.kind = fieldViewData.kind
+            newField.priority = fieldViewData.priority
+            
+            // Convert the options array to NSData to store in Core Data.
+            newField.options = fieldViewData.options?.toNSData()
+
+            viewModel.template.addToFields(newField)
+        }
+
+        managedObjectContext.perform {
+            do {
+                try managedObjectContext.save()
+                print("Coredata Saved")
+                DispatchQueue.main.async {
+                    self.forceRefresh.toggle()
+                }
+            } catch {
+                print("Failed to reset template: \(error)")
+            }
+        }
+
+        let fetchRequest: NSFetchRequest<Template> = Template.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id == %@", viewModel.template.id! as CVarArg)
+        do {
+            let results = try managedObjectContext.fetch(fetchRequest)
+            if let fetchedTemplate = results.first {
+                for field in fetchedTemplate.fields as? Set<TemplateField> ?? [] {
+                    print(field.name, field.kind, field.options)
+                }
+            }
+        } catch {
+            print("Failed to fetch template from Core Data:", error)
+        }
+    }
+
+    var accessToken: String
 
     var body: some View {
         VStack(spacing: 16) {
@@ -65,32 +138,29 @@ var accessToken: String
                 TextField("Enter a name", text: $viewModel.templateName)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.leading, 8)
-            
-            // Section to display conflicts
-            if !conflicts.isEmpty {
-                Section(header: Text("Conflicts")) {
-                    List(conflicts, id: \.self) { conflict in
-                        Text(conflict)
-                            .foregroundColor(.red)
-                    }
-                }
             }
-}
             .padding(.horizontal, 16)
 
             Divider()
 
-            List {
-              ForEach(viewModel.templateFields, id: \.id) { field in
-                EditFieldRow(field: field, json: fetchedProps)
-                      .onAppear{
-                        fetchDatabase()
-                      }
-              }
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(viewModel.templateFields.enumerated()), id: \.element.id) { index, field in
+                        EditFieldRow(field: field, json: fetchedProps)
+                            .background(index % 2 == 0 ? Color(NSColor.windowBackgroundColor) : Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(8)
+                            .padding(.horizontal)
+                            .frame(idealWidth: .infinity)
+                    }
+                }
+                .padding(.vertical, 12)
             }
-            .listStyle(.inset(alternatesRowBackgrounds: true))
+            .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(8)
-            .frame(minHeight: 400)
+            .frame(idealHeight: 500)
+            .onAppear {
+                fetchDatabase()
+            }
 
             Button(action: updateTemplate) {
                 Text("Update Template")
@@ -104,16 +174,18 @@ var accessToken: String
             .disabled(!canSave())
             .help(viewModel.templateName.isEmpty ? "Template name is required" : "")
             
-            Button(action: logTemplates) {
-                Text("Log Template")
-                    .foregroundColor(.white)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 40)
-                    .background(Color.blue)
-                    .cornerRadius(8)
+            if !conflicts.isEmpty {
+                Button(action: {
+                    print("Reset Template button pressed.")
+                    resetTemplateToNotion()
+                }) {
+                    Text("Reset Template")
+                        .foregroundColor(Color.white)
+                        .padding()
+                        .background(Color.red)
+                        .cornerRadius(8.0)
+                }
             }
-            .buttonStyle(.borderless)
-
 
             if !conflicts.isEmpty {
                 Text("Conflicts Detected:")
@@ -123,6 +195,7 @@ var accessToken: String
                 }
             }
         }
+        .id(forceRefresh)
         .padding(.vertical, 20)
         .padding(.horizontal, 40)
         .frame(width: 500)
@@ -157,7 +230,6 @@ var accessToken: String
             newField.order = fieldViewData.order
             newField.kind = fieldViewData.kind
             newField.priority = fieldViewData.priority
-            
             viewModel.template.addToFields(newField)
         }
 
@@ -211,110 +283,44 @@ var accessToken: String
             do {
                 if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                    let properties = json["properties"] as? [String: Any] {
-                    compareFetchedDatabaseWithTemplate(fetchedData: properties)
-                    fetchedProps = properties
-                    fetchOptions(fetchedData: properties)
+                    DispatchQueue.main.async {
+                        self.compareFetchedDatabaseWithTemplate(fetchedData: properties)
+                        self.fetchedProps = properties
+                        self.fetchOptions(fetchedData: properties)
+                    }
                 }
             } catch {
                 print("Unexpected error: \(error).")
             }
-            
         }.resume()
     }
     
-    //Parameters
     func fetchOptions(fetchedData: [String: Any]) {
-
-      print("Function fetchOptions called")
-
-      for (key, fetchedValue) in fetchedData {
-
-        print("Key: \(key)")
-        print("Value: \(fetchedValue)")
-        
-        if let templateField = viewModel.templateFields.first(where: {
-          $0.name == key && ($0.kind == "select" || $0.kind == "multiselect" || $0.kind == "status")
-        }) {
-        
-          print("Handling field: \(key)")
-          
-            if let fetchedDict = fetchedValue as? [String: Any] {
-
-              print("Fetched dict: \(fetchedDict)")
-
-              if let selectDict = fetchedDict["select"] as? [String: Any],
-                 let options = selectDict["options"] as? [[String: Any]] {
-
-                print("Options: \(options)")
-              
-              let optionNames = options.compactMap({ $0["name"] as? String })
-              
-              templateField.options = optionNames
-              
-              print("Fetched options: \(optionNames)")
-              
-            } else {
-            
-              print("No options found in fetched dict")
-              
+        for (key, fetchedValue) in fetchedData {
+            if let templateField = viewModel.templateFields.first(where: {
+              $0.name == key && ($0.kind == "select" || $0.kind == "multiselect" || $0.kind == "status")
+            }) {
+                if let fetchedDict = fetchedValue as? [String: Any] {
+                    if let selectDict = fetchedDict["select"] as? [String: Any],
+                       let options = selectDict["options"] as? [[String: Any]] {
+                        let optionNames = options.compactMap({ $0["name"] as? String })
+                        templateField.options = optionNames
+                    } else {
+                        print("No options found in fetched dict")
+                    }
+                } else {
+                    print("Fetched value is not a dictionary")
+                }
+                fetchedProps[key] = templateField.options
             }
-            
-          } else {
-          
-            print("Fetched value is not a dictionary")
-            
-          }
-          
-          fetchedProps[key] = templateField.options
-          print("Fetched Props: \(fetchedProps)")
         }
-        
-      }
-      
-    }
-    
-    func logTemplates() {
-
-      let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Template")
-      do {
-        if let results = try managedObjectContext.fetch(fetchRequest) as? [Template] {
-        
-          for template in results {
-          
-            print("Template Name: \(template.name ?? "")")
-            print("Order: \(template.order)")
-            print("Database ID: \(template.databaseId ?? "")")
-            print("Fields:")
-            
-            if let fields = template.fields as? Set<TemplateField> {
-            
-              for field in fields {
-              
-                print("  Name: \(field.name ?? "")")
-                print("  Default Value: \(field.defaultValue ?? "")")
-                print("  Order: \(field.order)")
-                print("  Kind: \(field.kind ?? "")")
-              }
-              
-            }
-            
-          }
-          
-        }
-        
-      } catch let error as NSError {
-      
-        print("Could not fetch templates. \(error), \(error.userInfo)")
-      
-      }
-
     }
 }
 
 struct EditFieldRow: View {
     @ObservedObject var field: EditableTemplateFieldViewData
     @State var json: [String: Any]
-    
+
     var body: some View {
         VStack(alignment: .leading) {
             HStack {
@@ -329,14 +335,14 @@ struct EditFieldRow: View {
                 Text(field.kind)
                     .font(.body)
             }
-            
+
             Picker("Field Priority", selection: $field.priority) {
                 ForEach(FieldPriority.allCases) { priority in
                     Text(priority.rawValue.capitalized).tag(priority)
                 }
             }
-            .pickerStyle(SegmentedPickerStyle())
-            
+            .pickerStyle(.segmented)
+
             switch field.kind {
             case "checkbox":
                 Toggle(isOn: Binding(get: {
@@ -366,15 +372,15 @@ struct EditFieldRow: View {
                         Text("Option: \(option)")
                     }
                     Picker("Default Value", selection: $field.defaultValue) {
-                      ForEach(field.options ?? [], id: \.self) { option in
-                          Text(option).tag(option)
-                      }
+                        ForEach(field.options ?? [], id: \.self) { option in
+                            Text(option).tag(option)
+                        }
                     }
                 } else {
                     Picker("Default Value", selection: $field.defaultValue) {
-                      ForEach(field.options ?? [], id: \.self) { option in
-                          Text(option).tag(option)
-                      }
+                        ForEach(field.options ?? [], id: \.self) { option in
+                            Text(option).tag(option)
+                        }
                     }
                 }
             default:
@@ -385,8 +391,5 @@ struct EditFieldRow: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 16)
-        .onAppear{
-            print("⚠️JSON: \(json)")
-        }
     }
 }

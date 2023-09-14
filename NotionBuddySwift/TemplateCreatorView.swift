@@ -130,7 +130,7 @@ struct TemplateCreatorView: View {
             .padding(.horizontal, 16)
             Divider()
             List {
-                ForEach(templateFields) { field in
+                ForEach(templateFields, id: \.id) { field in
                     FieldRow(field: field)
                 }
                 .onMove(perform: move)
@@ -251,22 +251,6 @@ struct TemplateCreatorView: View {
             newField.priority = fieldViewData.priority.rawValue
             newField.kind = fieldViewData.kind
             newTemplate.addToFields(newField)
-        }
-        
-        print("Saving new template:")
-        print("  Name: \(newTemplate.name ?? "")")
-        print("  Order: \(newTemplate.order)")
-        print("  Database ID: \(newTemplate.databaseId ?? "")")
-        print("  Fields:")
-        for fieldViewData in templateFields {
-            print("    Name: \(fieldViewData.name)")
-            print("    Kind: \(fieldViewData.kind)")
-            print("    Priority: \(fieldViewData.priority.rawValue)")
-            print("    Default Value: \(fieldViewData.defaultValue)")
-            print("    Order: \(fieldViewData.order)")
-            if let options = fieldViewData.options {
-                print("    Options: \(options.joined(separator: ", "))")
-            }
         }
         
         DispatchQueue.global()

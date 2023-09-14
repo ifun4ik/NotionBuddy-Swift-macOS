@@ -186,6 +186,7 @@ struct DatabaseNavigatorView: View {
         .onAppear {
             SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
             fetchDatabases()
+            self.search(query: "")
         }
         .sheet(isPresented: $showTemplateCreator) {
             if let selectedDatabase = selectedDatabase {
