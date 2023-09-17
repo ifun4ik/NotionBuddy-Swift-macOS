@@ -3,7 +3,7 @@ import CoreData
 
 class EditableTemplateFieldViewData: ObservableObject, Identifiable {
     let id = UUID()
-    let name: String
+    var name: String
     var kind: String
     @Published var conflict: String?
     @Published var priority: String
@@ -19,7 +19,17 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
         self.order = templateField.order
         self.options = templateField.options as? [String]
 
-    checkFieldOptionsConflicts(with: templateField)}
+        checkFieldOptionsConflicts(with: templateField)
+
+        // Check if there's a default value, if not and it's a picker type, set the first option
+        if let options = self.options, !options.isEmpty {
+            // If default value is empty, set it to the first option
+            if self.defaultValue.isEmpty {
+                self.defaultValue = options[0]
+            }
+        }
+    }
+
         // Check for field options conflicts
 
     func checkFieldOptionsConflicts(with originalField: TemplateField) {
@@ -37,6 +47,15 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
         }
     }
     
+    func setPriorityBasedOnKind() {
+            if kind == "checkbox" || kind == "date" || kind == "email" || kind == "phone_number"
+                || kind == "rich_text" || kind == "title" || kind == "url"
+                || kind == "multi_select" || kind == "select" || kind == "status" {
+                self.priority = FieldPriority.optional.rawValue
+            } else {
+                self.priority = FieldPriority.skip.rawValue
+            }
+        }
 
 }
 

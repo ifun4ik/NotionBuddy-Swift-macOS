@@ -3,6 +3,7 @@ import SDWebImageSwiftUI
 import SDWebImageSVGCoder
 import CoreData
 
+
 extension Array where Element == String {
     func toNSData() -> NSData? {
         do {
@@ -27,7 +28,7 @@ struct EditTemplateView: View {
 
     /// Compares the fetched Notion database properties with the existing template
     func compareFetchedDatabaseWithTemplate(fetchedData: [String: Any]) {
-        // Reset conflicts
+        // Clear the conflicts
         conflicts.removeAll()
         
         // Loop through fetched data and compare with template
@@ -67,66 +68,82 @@ struct EditTemplateView: View {
     
     func resetTemplateToNotion() {
         fetchDatabase()
-        print(fetchedProps)
+        print("Fetched props: \(fetchedProps)")
+        
+        var newTemplateFields: [EditableTemplateFieldViewData] = []
         
         for (key, fetchedValue) in fetchedProps {
             if let fetchedDict = fetchedValue as? [String: Any] {
                 let kind = fetchedDict["type"] as? String ?? ""
                 let options = (fetchedDict["options"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
-
-                if let templateField = viewModel.templateFields.first(where: { $0.name == key }) {
+                
+                var defaultValue: String = ""
+                if let firstOption = options?.first {
+                    defaultValue = firstOption
+                }
+                
+                if let templateFieldIndex = newTemplateFields.firstIndex(where: { $0.name == key }) {
+                    let templateField = newTemplateFields[templateFieldIndex]
                     templateField.kind = kind
                     templateField.options = options
+                    templateField.defaultValue = defaultValue
+                    
+                    if let options = templateField.options, !options.contains(where: { $0 == templateField.defaultValue }) {
+                        templateField.defaultValue = options.first ?? ""
+                    }
+                } else {
+                    // This is a new field, not present in the viewModel yet.
+                    let newField = EditableTemplateFieldViewData(templateField: TemplateField(context: managedObjectContext))
+                    newField.kind = kind
+                    newField.name = key
+                    newField.options = options
+                    newField.setPriorityBasedOnKind()
+                    
+                    // Logic to maintain disabled fields
+                    if let existingField = viewModel.templateFields.first(where: { $0.name == key }) {
+                        newField.defaultValue = existingField.defaultValue
+                    } else {
+                        newField.defaultValue = defaultValue
+                    }
+                    
+                    if let options = newField.options, !options.contains(where: { $0 == newField.defaultValue }) {
+                        newField.defaultValue = options.first ?? ""
+                    }
+                    newTemplateFields.append(newField)
                 }
             }
         }
+        
+        print("Prepared new fields based on fetchedProps.")
         
         if let oldFields = viewModel.template.fields as? Set<TemplateField> {
             for oldField in oldFields {
                 managedObjectContext.delete(oldField)
             }
         }
-
-        for fieldViewData in viewModel.templateFields {
-            let newField = TemplateField(context: managedObjectContext)
-            newField.id = fieldViewData.id
-            newField.name = fieldViewData.name
-            newField.defaultValue = fieldViewData.defaultValue
-            newField.order = fieldViewData.order
-            newField.kind = fieldViewData.kind
-            newField.priority = fieldViewData.priority
-            
-            // Convert the options array to NSData to store in Core Data.
-            newField.options = fieldViewData.options?.toNSData()
-
-            viewModel.template.addToFields(newField)
-        }
+        
+        print("Old fields deleted from managedObjectContext.")
+        
+        // Now replace the viewModel.templateFields with our new fields
+        viewModel.templateFields = newTemplateFields
 
         managedObjectContext.perform {
             do {
                 try managedObjectContext.save()
                 print("Coredata Saved")
+                conflicts.removeAll()
                 DispatchQueue.main.async {
                     self.forceRefresh.toggle()
+                    self.compareFetchedDatabaseWithTemplate(fetchedData: self.fetchedProps) // Recheck conflicts after reset
+                    print("UI should refresh now.")
                 }
             } catch {
                 print("Failed to reset template: \(error)")
             }
         }
-
-        let fetchRequest: NSFetchRequest<Template> = Template.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "id == %@", viewModel.template.id! as CVarArg)
-        do {
-            let results = try managedObjectContext.fetch(fetchRequest)
-            if let fetchedTemplate = results.first {
-                for field in fetchedTemplate.fields as? Set<TemplateField> ?? [] {
-                    print(field.name, field.kind, field.options)
-                }
-            }
-        } catch {
-            print("Failed to fetch template from Core Data:", error)
-        }
     }
+
+
 
     var accessToken: String
 
@@ -298,13 +315,18 @@ struct EditTemplateView: View {
     func fetchOptions(fetchedData: [String: Any]) {
         for (key, fetchedValue) in fetchedData {
             if let templateField = viewModel.templateFields.first(where: {
-              $0.name == key && ($0.kind == "select" || $0.kind == "multiselect" || $0.kind == "status")
-            }) {
+                  $0.name == key && ($0.kind == "select" || $0.kind == "multiselect" || $0.kind == "status")
+                }) {
                 if let fetchedDict = fetchedValue as? [String: Any] {
                     if let selectDict = fetchedDict["select"] as? [String: Any],
                        let options = selectDict["options"] as? [[String: Any]] {
                         let optionNames = options.compactMap({ $0["name"] as? String })
                         templateField.options = optionNames
+
+                        // Ensure the default value exists in options
+                        if !optionNames.contains(templateField.defaultValue) {
+                            templateField.defaultValue = optionNames.first ?? ""
+                        }
                     } else {
                         print("No options found in fetched dict")
                     }
@@ -315,6 +337,7 @@ struct EditTemplateView: View {
             }
         }
     }
+
 }
 
 struct EditFieldRow: View {
@@ -342,6 +365,7 @@ struct EditFieldRow: View {
                 }
             }
             .pickerStyle(.segmented)
+            .disabled(field.priority == FieldPriority.skip.rawValue)
 
             switch field.kind {
             case "checkbox":
@@ -352,7 +376,7 @@ struct EditFieldRow: View {
                 })) {
                     Text("Default Value")
                 }
-                .disabled(field.priority == "skip")
+                .disabled(field.priority == FieldPriority.skip.rawValue)
             case "date":
                 DatePicker("", selection: Binding(get: {
                     Date()
@@ -360,11 +384,11 @@ struct EditFieldRow: View {
                     field.defaultValue = "\($0)"
                 }))
                     .labelsHidden()
-                    .disabled(field.priority == "skip")
+                    .disabled(field.priority == FieldPriority.skip.rawValue)
             case "email", "phone_number", "rich_text", "title", "url":
                 TextField("Default Value", text: $field.defaultValue)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .disabled(field.priority == "skip")
+                    .disabled(field.priority == FieldPriority.skip.rawValue)
             case "multi_select", "select", "status":
                 if let jsonOptions = json[field.name] as? [String: Any], let options = jsonOptions["options"] as? [[String: Any]] {
                     let optionNames = options.compactMap { $0["name"] as? String }
@@ -376,20 +400,23 @@ struct EditFieldRow: View {
                             Text(option).tag(option)
                         }
                     }
+                    .disabled(field.priority == FieldPriority.skip.rawValue)
                 } else {
                     Picker("Default Value", selection: $field.defaultValue) {
                         ForEach(field.options ?? [], id: \.self) { option in
                             Text(option).tag(option)
                         }
                     }
+                    .disabled(field.priority == FieldPriority.skip.rawValue)
                 }
             default:
                 TextField("Default Value", text: $field.defaultValue)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .disabled(field.priority == "skip")
+                    .disabled(field.priority == FieldPriority.skip.rawValue)
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 16)
         .padding(.horizontal, 16)
     }
 }
+
