@@ -27,7 +27,7 @@ struct EditTemplateView: View {
     @State private var forceRefresh: Bool = false
 
     /// Compares the fetched Notion database properties with the existing template
-    func compareFetchedDatabaseWithTemplate(fetchedData: [String: Any]) {
+    func compareFetchedDatabaseWithTemplate(fetchedData: [String: Any], withFields fields: [EditableTemplateFieldViewData]) {
         // Clear the conflicts
         conflicts.removeAll()
         
@@ -67,9 +67,22 @@ struct EditTemplateView: View {
     }
     
     func resetTemplateToNotion() {
-        fetchDatabase()
-        print("Fetched props: \(fetchedProps)")
+        // 1. Delete old fields from the managedObjectContext
+        if let oldFields = viewModel.template.fields as? Set<TemplateField> {
+            for oldField in oldFields {
+                managedObjectContext.delete(oldField)
+                print("🗑️ Removed \(oldField.name ?? "Unknown Field")")
+            }
+        }
         
+        // 2. Save the context after deleting
+        do {
+            try managedObjectContext.save()
+        } catch {
+            print("Failed to delete old fields: \(error)")
+        }
+        
+        // 3. Create new fields based on fetchedProps
         var newTemplateFields: [EditableTemplateFieldViewData] = []
         
         for (key, fetchedValue) in fetchedProps {
@@ -82,67 +95,62 @@ struct EditTemplateView: View {
                     defaultValue = firstOption
                 }
                 
-                if let templateFieldIndex = newTemplateFields.firstIndex(where: { $0.name == key }) {
-                    let templateField = newTemplateFields[templateFieldIndex]
-                    templateField.kind = kind
-                    templateField.options = options
-                    templateField.defaultValue = defaultValue
-                    
-                    if let options = templateField.options, !options.contains(where: { $0 == templateField.defaultValue }) {
-                        templateField.defaultValue = options.first ?? ""
-                    }
+                let newField = EditableTemplateFieldViewData(templateField: TemplateField(context: managedObjectContext))
+                newField.kind = kind
+                newField.name = key
+                newField.options = options
+                newField.setPriorityBasedOnKind()
+                
+                // Logic to maintain disabled fields
+                if let existingField = viewModel.templateFields.first(where: { $0.name == key }) {
+                    newField.defaultValue = existingField.defaultValue
                 } else {
-                    // This is a new field, not present in the viewModel yet.
-                    let newField = EditableTemplateFieldViewData(templateField: TemplateField(context: managedObjectContext))
-                    newField.kind = kind
-                    newField.name = key
-                    newField.options = options
-                    newField.setPriorityBasedOnKind()
-                    
-                    // Logic to maintain disabled fields
-                    if let existingField = viewModel.templateFields.first(where: { $0.name == key }) {
-                        newField.defaultValue = existingField.defaultValue
-                    } else {
-                        newField.defaultValue = defaultValue
-                    }
-                    
-                    if let options = newField.options, !options.contains(where: { $0 == newField.defaultValue }) {
-                        newField.defaultValue = options.first ?? ""
-                    }
-                    newTemplateFields.append(newField)
+                    newField.defaultValue = defaultValue
                 }
+                
+                if let options = newField.options, !options.contains(where: { $0 == newField.defaultValue }) {
+                    newField.defaultValue = options.first ?? ""
+                }
+                newTemplateFields.append(newField)
+            } else if let fetchedArray = fetchedValue as? [String] {
+                // Handle fields represented as arrays
+                let newField = EditableTemplateFieldViewData(templateField: TemplateField(context: managedObjectContext))
+                newField.kind = "select"  // Assuming fields represented as arrays are of kind "select"
+                newField.name = key
+                newField.options = fetchedArray
+                newField.setPriorityBasedOnKind()
+                
+                // Logic to maintain disabled fields
+                if let existingField = viewModel.templateFields.first(where: { $0.name == key }) {
+                    newField.defaultValue = existingField.defaultValue
+                } else {
+                    newField.defaultValue = fetchedArray.first ?? ""
+                }
+                
+                if let options = newField.options, !options.contains(where: { $0 == newField.defaultValue }) {
+                    newField.defaultValue = options.first ?? ""
+                }
+                newTemplateFields.append(newField)
             }
         }
         
-        print("Prepared new fields based on fetchedProps.")
         
-        if let oldFields = viewModel.template.fields as? Set<TemplateField> {
-            for oldField in oldFields {
-                managedObjectContext.delete(oldField)
-            }
-        }
-        
-        print("Old fields deleted from managedObjectContext.")
-        
-        // Now replace the viewModel.templateFields with our new fields
+        // 4. Update the viewModel.templateFields with our new fields
         viewModel.templateFields = newTemplateFields
 
+        // 5. Save the context after adding new fields
         managedObjectContext.perform {
             do {
                 try managedObjectContext.save()
-                print("Coredata Saved")
                 conflicts.removeAll()
                 DispatchQueue.main.async {
                     self.forceRefresh.toggle()
-                    self.compareFetchedDatabaseWithTemplate(fetchedData: self.fetchedProps) // Recheck conflicts after reset
-                    print("UI should refresh now.")
                 }
             } catch {
                 print("Failed to reset template: \(error)")
             }
         }
     }
-
 
 
     var accessToken: String
@@ -175,9 +183,6 @@ struct EditTemplateView: View {
             .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(8)
             .frame(idealHeight: 500)
-            .onAppear {
-                fetchDatabase()
-            }
 
             Button(action: updateTemplate) {
                 Text("Update Template")
@@ -193,7 +198,6 @@ struct EditTemplateView: View {
             
             if !conflicts.isEmpty {
                 Button(action: {
-                    print("Reset Template button pressed.")
                     resetTemplateToNotion()
                 }) {
                     Text("Reset Template")
@@ -213,13 +217,13 @@ struct EditTemplateView: View {
             }
         }
         .id(forceRefresh)
+        .onAppear {
+            fetchDatabase(gottaCheck: true)
+        }
         .padding(.vertical, 20)
         .padding(.horizontal, 40)
         .frame(width: 500)
         .background(Color(NSColor.windowBackgroundColor))
-        .onAppear {
-            fetchDatabase()
-        }
     }
 
     func move(from source: IndexSet, to destination: Int) {
@@ -274,7 +278,7 @@ struct EditTemplateView: View {
         return true
     }
 
-    func fetchDatabase() {
+    func fetchDatabase(gottaCheck: Bool) {
         guard let databaseId = viewModel.template.databaseId,
               let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)") else {
             print("Invalid URL or database ID.")
@@ -301,7 +305,9 @@ struct EditTemplateView: View {
                 if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                    let properties = json["properties"] as? [String: Any] {
                     DispatchQueue.main.async {
-                        self.compareFetchedDatabaseWithTemplate(fetchedData: properties)
+                        if gottaCheck{
+                            self.compareFetchedDatabaseWithTemplate(fetchedData: properties, withFields: viewModel.templateFields)
+                        }
                         self.fetchedProps = properties
                         self.fetchOptions(fetchedData: properties)
                     }
