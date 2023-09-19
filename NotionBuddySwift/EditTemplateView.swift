@@ -25,6 +25,11 @@ struct EditTemplateView: View {
     @State private var conflicts: [String] = []
     @State private var fetchedProps: [String : Any] = [:]
     @State private var forceRefresh: Bool = false
+    
+    @State private var draggedItem: EditableTemplateFieldViewData?
+    @State private var position: CGFloat = 0
+    @State private var currentHoveredIndex: Int? = nil
+    @State private var dropPosition: Int? = nil 
 
     /// Compares the fetched Notion database properties with the existing template
     func compareFetchedDatabaseWithTemplate(fetchedData: [String: Any], withFields fields: [EditableTemplateFieldViewData]) {
@@ -172,10 +177,21 @@ struct EditTemplateView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(viewModel.templateFields.enumerated()), id: \.element.id) { index, field in
                         EditFieldRow(field: field, json: fetchedProps)
-                            .background(index % 2 == 0 ? Color(NSColor.windowBackgroundColor) : Color(NSColor.controlBackgroundColor))
+                            .background(self.backgroundForIndex(index: index))
                             .cornerRadius(8)
                             .padding(.horizontal)
                             .frame(idealWidth: .infinity)
+                            .onDrag {
+                                self.draggedItem = field
+                                return NSItemProvider(object: "\(field.id)" as NSString)
+                            }
+                            .onDrop(of: [kUTTypeText as String], delegate: DropViewDelegate(item: field, items: $viewModel.templateFields, draggedItem: $draggedItem, position: $position, hoveredIndex: $currentHoveredIndex, dropPosition: $dropPosition))
+                            .overlay(VStack {
+                                if dropPosition == index {
+                                    Divider().background(Color.blue).padding([.leading, .trailing])
+                                }
+                                Spacer()
+                            })
                     }
                 }
                 .padding(.vertical, 12)
@@ -219,6 +235,7 @@ struct EditTemplateView: View {
         .id(forceRefresh)
         .onAppear {
             fetchDatabase(gottaCheck: true)
+            sortTemplateFields()
         }
         .padding(.vertical, 20)
         .padding(.horizontal, 40)
@@ -231,6 +248,7 @@ struct EditTemplateView: View {
         for (index, field) in viewModel.templateFields.enumerated() {
             field.order = Int16(index)
         }
+        saveContext()
     }
 
     func updateTemplate() {
@@ -243,12 +261,12 @@ struct EditTemplateView: View {
             }
         }
 
-        for fieldViewData in viewModel.templateFields {
+        for (index, fieldViewData) in viewModel.templateFields.enumerated() {
             let newField = TemplateField(context: managedObjectContext)
             newField.id = fieldViewData.id
             newField.name = fieldViewData.name
             newField.defaultValue = fieldViewData.defaultValue
-            newField.order = fieldViewData.order
+            newField.order = Int16(index)
             newField.kind = fieldViewData.kind
             newField.priority = fieldViewData.priority
             viewModel.template.addToFields(newField)
@@ -343,6 +361,23 @@ struct EditTemplateView: View {
             }
         }
     }
+    
+    func backgroundForIndex(index: Int) -> Color {
+        return index % 2 == 0 ? Color(NSColor.windowBackgroundColor) : Color(NSColor.controlBackgroundColor)
+    }
+
+    
+    func sortTemplateFields() {
+        viewModel.templateFields.sort(by: { $0.order < $1.order })
+    }
+    
+    func saveContext() {
+        do {
+            try managedObjectContext.save()
+        } catch {
+            print("Failed to save context after reordering: \(error)")
+        }
+    }
 
 }
 
@@ -351,74 +386,80 @@ struct EditFieldRow: View {
     @State var json: [String: Any]
 
     var body: some View {
-        VStack(alignment: .leading) {
-            HStack {
-                Text("Field Name:")
-                    .font(.headline)
-                Text(field.name)
-                    .font(.body)
-            }
-            HStack {
-                Text("Field Type:")
-                    .font(.headline)
-                Text(field.kind)
-                    .font(.body)
-            }
-
-            Picker("Field Priority", selection: $field.priority) {
-                ForEach(FieldPriority.allCases) { priority in
-                    Text(priority.rawValue.capitalized).tag(priority)
+        HStack {
+            Image(systemName: "line.horizontal.3")
+                .foregroundColor(.gray)
+                .padding(.trailing, 10)
+            
+            VStack(alignment: .leading) {
+                HStack {
+                    Text("Field Name:")
+                        .font(.headline)
+                    Text(field.name)
+                        .font(.body)
                 }
-            }
-            .pickerStyle(.segmented)
-            .disabled(field.priority == FieldPriority.skip.rawValue)
-
-            switch field.kind {
-            case "checkbox":
-                Toggle(isOn: Binding(get: {
-                    Bool(field.defaultValue) ?? false
-                }, set: {
-                    field.defaultValue = String($0)
-                })) {
-                    Text("Default Value")
+                HStack {
+                    Text("Field Type:")
+                        .font(.headline)
+                    Text(field.kind)
+                        .font(.body)
                 }
+                
+                Picker("Field Priority", selection: $field.priority) {
+                    ForEach(FieldPriority.allCases) { priority in
+                        Text(priority.rawValue.capitalized).tag(priority)
+                    }
+                }
+                .pickerStyle(.segmented)
                 .disabled(field.priority == FieldPriority.skip.rawValue)
-            case "date":
-                DatePicker("", selection: Binding(get: {
-                    Date()
-                }, set: {
-                    field.defaultValue = "\($0)"
-                }))
+                
+                switch field.kind {
+                case "checkbox":
+                    Toggle(isOn: Binding(get: {
+                        Bool(field.defaultValue) ?? false
+                    }, set: {
+                        field.defaultValue = String($0)
+                    })) {
+                        Text("Default Value")
+                    }
+                    .disabled(field.priority == FieldPriority.skip.rawValue)
+                case "date":
+                    DatePicker("", selection: Binding(get: {
+                        Date()
+                    }, set: {
+                        field.defaultValue = "\($0)"
+                    }))
                     .labelsHidden()
                     .disabled(field.priority == FieldPriority.skip.rawValue)
-            case "email", "phone_number", "rich_text", "title", "url":
-                TextField("Default Value", text: $field.defaultValue)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .disabled(field.priority == FieldPriority.skip.rawValue)
-            case "multi_select", "select", "status":
-                if let jsonOptions = json[field.name] as? [String: Any], let options = jsonOptions["options"] as? [[String: Any]] {
-                    let optionNames = options.compactMap { $0["name"] as? String }
-                    ForEach(optionNames, id: \.self) { option in
-                        Text("Option: \(option)")
-                    }
-                    Picker("Default Value", selection: $field.defaultValue) {
-                        ForEach(field.options ?? [], id: \.self) { option in
-                            Text(option).tag(option)
+                case "email", "phone_number", "rich_text", "title", "url":
+                    TextField("Default Value", text: $field.defaultValue)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .disabled(field.priority == FieldPriority.skip.rawValue)
+                case "multi_select", "select", "status":
+                    if let jsonOptions = json[field.name] as? [String: Any], let options = jsonOptions["options"] as? [[String: Any]] {
+                        let optionNames = options.compactMap { $0["name"] as? String }
+                        ForEach(optionNames, id: \.self) { option in
+                            Text("Option: \(option)")
                         }
-                    }
-                    .disabled(field.priority == FieldPriority.skip.rawValue)
-                } else {
-                    Picker("Default Value", selection: $field.defaultValue) {
-                        ForEach(field.options ?? [], id: \.self) { option in
-                            Text(option).tag(option)
+                        Picker("Default Value", selection: $field.defaultValue) {
+                            ForEach(field.options ?? [], id: \.self) { option in
+                                Text(option).tag(option)
+                            }
                         }
+                        .disabled(field.priority == FieldPriority.skip.rawValue)
+                    } else {
+                        Picker("Default Value", selection: $field.defaultValue) {
+                            ForEach(field.options ?? [], id: \.self) { option in
+                                Text(option).tag(option)
+                            }
+                        }
+                        .disabled(field.priority == FieldPriority.skip.rawValue)
                     }
-                    .disabled(field.priority == FieldPriority.skip.rawValue)
+                default:
+                    TextField("Default Value", text: $field.defaultValue)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .disabled(field.priority == FieldPriority.skip.rawValue)
                 }
-            default:
-                TextField("Default Value", text: $field.defaultValue)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .disabled(field.priority == FieldPriority.skip.rawValue)
             }
         }
         .padding(.vertical, 16)
@@ -426,3 +467,41 @@ struct EditFieldRow: View {
     }
 }
 
+
+struct DropViewDelegate: DropDelegate {
+    let item: EditableTemplateFieldViewData
+    @Binding var items: [EditableTemplateFieldViewData]
+    @Binding var draggedItem: EditableTemplateFieldViewData?
+    @Binding var position: CGFloat
+    @Binding var hoveredIndex: Int?
+    @Binding var dropPosition: Int?  // Added to compute the drop position
+
+    func performDrop(info: DropInfo) -> Bool {
+        if let fromIndex = items.firstIndex(where: { $0.id == draggedItem?.id }),
+           let toIndex = items.firstIndex(where: { $0.id == item.id }) {
+            withAnimation {
+                items.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex)
+            }
+        }
+        draggedItem = nil
+        hoveredIndex = nil
+        dropPosition = nil  // Resetting the drop position
+        return true
+    }
+
+    func dropEntered(info: DropInfo) {
+        if let _ = info.itemProviders(for: [kUTTypeText as String]).first {
+            let toIndex = items.firstIndex { $0.id == item.id }!
+            dropPosition = toIndex
+        }
+    }
+
+
+    func dropExited(info: DropInfo) {
+        dropPosition = nil
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        return DropProposal(operation: .move)
+    }
+}

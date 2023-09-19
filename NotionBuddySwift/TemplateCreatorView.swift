@@ -46,27 +46,32 @@ class TemplateFieldViewData: ObservableObject, Identifiable {
 struct FieldRow: View {
     @ObservedObject var field: TemplateFieldViewData
     var body: some View {
-        VStack(alignment: .leading) {
-            HStack {
-                Text("Field Name:")
-                    .font(.headline)
-                Text(field.name)
-                    .font(.body)
-            }
-            HStack {
-                Text("Field Type:")
-                    .font(.headline)
-                Text(field.kind)
-                    .font(.body)
-            }
-            Picker("Field Priority", selection: $field.priority) {
-                ForEach(FieldPriority.allCases) { kind in
-                    Text(kind.rawValue.capitalized).tag(kind)
-                }
-            }
-            .pickerStyle(SegmentedPickerStyle())
+        HStack{
+            Image(systemName: "line.horizontal.3")
+                .foregroundColor(.gray)
+                .padding(.trailing, 10)
             
-            switch field.kind {
+            VStack(alignment: .leading) {
+                HStack {
+                    Text("Field Name:")
+                        .font(.headline)
+                    Text(field.name)
+                        .font(.body)
+                }
+                HStack {
+                    Text("Field Type:")
+                        .font(.headline)
+                    Text(field.kind)
+                        .font(.body)
+                }
+                Picker("Field Priority", selection: $field.priority) {
+                    ForEach(FieldPriority.allCases) { kind in
+                        Text(kind.rawValue.capitalized).tag(kind)
+                    }
+                }
+                .pickerStyle(SegmentedPickerStyle())
+                
+                switch field.kind {
                 case "checkbox":
                     Toggle(
                         isOn: Binding(
@@ -101,6 +106,7 @@ struct FieldRow: View {
                 default:
                     TextField("Default Value", text: .constant(""))
                         .disabled(true)
+                }
             }
         }
         .padding(.vertical, 8)
