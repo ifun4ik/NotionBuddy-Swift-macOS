@@ -213,15 +213,16 @@ struct EditTemplateView: View {
             .help(viewModel.templateName.isEmpty ? "Template name is required" : "")
             
             if !conflicts.isEmpty {
-                Button(action: {
-                    resetTemplateToNotion()
-                }) {
+                Button(action: resetTemplateToNotion) {
                     Text("Reset Template")
-                        .foregroundColor(Color.white)
-                        .padding()
+                        .foregroundColor(.white)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 40)
                         .background(Color.red)
-                        .cornerRadius(8.0)
+                        .cornerRadius(8)
                 }
+                .buttonStyle(PlainButtonStyle())
+                
             }
 
             if !conflicts.isEmpty {
