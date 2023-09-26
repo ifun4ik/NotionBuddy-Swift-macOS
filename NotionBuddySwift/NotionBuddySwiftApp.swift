@@ -1,9 +1,14 @@
 import SwiftUI
+import HotKey
 
 @main
 struct NotionBuddyApp: App {
     let persistenceController = PersistenceController.shared
     @ObservedObject var sessionManager = SessionManager()
+
+    init() {
+        GlobalShortcutManager.shared.setupGlobalShortcut()
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -24,10 +29,6 @@ struct NotionBuddyApp: App {
         }
     }
 }
-
-
-
-
 
 
 class PersistenceController {
