@@ -28,10 +28,12 @@ class GlobalShortcutManager {
             backing: .buffered,
             defer: false
         )
-        if let screen = NSScreen.main {
+
+        // Position the window on the screen where the mouse cursor is located
+        if let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }) {
             let screenRect = screen.visibleFrame
-            let xPos = (screenRect.width - 480) / 2
-            let yPos = (screenRect.height - 200) / 2
+            let xPos = screenRect.origin.x + (screenRect.width - 480) / 2
+            let yPos = screenRect.origin.y + (screenRect.height - 200) / 2
             window.setFrameOrigin(NSPoint(x: xPos, y: yPos))
         }
 
