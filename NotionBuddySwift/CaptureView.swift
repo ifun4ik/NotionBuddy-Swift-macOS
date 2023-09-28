@@ -13,5 +13,6 @@ struct CaptureView: View {
     
     private func handleCommit() {
         print("Captured Text: \(capturedText)")
+        NotificationCenter.default.post(name: NSNotification.Name("CloseCaptureWindow"), object: nil)
     }
 }

@@ -26,6 +26,8 @@
 		8D9435D22A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435D12A3A462000F7CC62 /* NotionBuddySwiftUITestsLaunchTests.swift */; };
 		8DC5166A2A64934500FB72C8 /* SidebarNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC516692A64934500FB72C8 /* SidebarNavigationView.swift */; };
 		8DCDA9002A5B5C07007B54E5 /* DatabaseNavigatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCDA8FF2A5B5C07007B54E5 /* DatabaseNavigatorView.swift */; };
+		8DD1077B2AC4CC140077B935 /* CustomWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD1077A2AC4CC140077B935 /* CustomWindow.swift */; };
+		8DD1077D2AC4CC390077B935 /* CaptureWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD1077C2AC4CC390077B935 /* CaptureWindowController.swift */; };
 		8DEA959E2A7C49910007836F /* TemplateViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DEA959D2A7C49910007836F /* TemplateViewModel.swift */; };
 		8DF13C2E2A6295330030F889 /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 8DF13C2D2A6295330030F889 /* SDWebImageSwiftUI */; };
 		8DF13C312A6296CD0030F889 /* SDWebImageSVGCoder in Frameworks */ = {isa = PBXBuildFile; productRef = 8DF13C302A6296CD0030F889 /* SDWebImageSVGCoder */; };
@@ -74,6 +76,8 @@
 		8D9435DE2A3A47C500F7CC62 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8DC516692A64934500FB72C8 /* SidebarNavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarNavigationView.swift; sourceTree = "<group>"; };
 		8DCDA8FF2A5B5C07007B54E5 /* DatabaseNavigatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseNavigatorView.swift; sourceTree = "<group>"; };
+		8DD1077A2AC4CC140077B935 /* CustomWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomWindow.swift; sourceTree = "<group>"; };
+		8DD1077C2AC4CC390077B935 /* CaptureWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureWindowController.swift; sourceTree = "<group>"; };
 		8DEA959D2A7C49910007836F /* TemplateViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateViewModel.swift; sourceTree = "<group>"; };
 		8DF13C322A63475A0030F889 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		8DF13C342A6349D00030F889 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
@@ -134,6 +138,8 @@
 				8D9435DE2A3A47C500F7CC62 /* Info.plist */,
 				8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */,
 				8D54B6082AC2990700B9B01F /* GlobalShortcutManager.swift */,
+				8DD1077A2AC4CC140077B935 /* CustomWindow.swift */,
+				8DD1077C2AC4CC390077B935 /* CaptureWindowController.swift */,
 				8D2F263A2AC37E1400BF9364 /* CaptureView.swift */,
 				8D9435B52A3A461F00F7CC62 /* LoginView.swift */,
 				8D23D79D2A6420FD00A58C7C /* TemplateNavigatorView.swift */,
@@ -324,6 +330,7 @@
 				8D54B6092AC2990700B9B01F /* GlobalShortcutManager.swift in Sources */,
 				8D9435B42A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld in Sources */,
 				8DF13C332A63475A0030F889 /* MainView.swift in Sources */,
+				8DD1077D2AC4CC390077B935 /* CaptureWindowController.swift in Sources */,
 				8D9435AF2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift in Sources */,
 				8D9435B62A3A461F00F7CC62 /* LoginView.swift in Sources */,
 				8D0873372A65CAE9002F54A6 /* TemplateCreatorView.swift in Sources */,
@@ -331,6 +338,7 @@
 				8DCDA9002A5B5C07007B54E5 /* DatabaseNavigatorView.swift in Sources */,
 				8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */,
 				8D08733B2A65ED8A002F54A6 /* TemplateDetailView.swift in Sources */,
+				8DD1077B2AC4CC140077B935 /* CustomWindow.swift in Sources */,
 				8D2F263B2AC37E1400BF9364 /* CaptureView.swift in Sources */,
 				8D1F719A2A649C6100F5C29C /* UserDefaultsLogger.swift in Sources */,
 				8D8B95182A76964100DEDFFF /* EditTemplateView.swift in Sources */,
