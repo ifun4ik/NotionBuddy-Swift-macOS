@@ -1,8 +1,3 @@
-
-import HotKey
-import Cocoa
-import SwiftUI
-
 import HotKey
 import Cocoa
 import SwiftUI
@@ -24,10 +19,11 @@ class GlobalShortcutManager {
         let captureView = CaptureView()
         let window = CustomWindow(
             contentRect: NSRect(x: 0, y: 0, width: 480, height: 200),
-            styleMask: [.borderless],
+            styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
+        window.backgroundColor = .clear
 
         // Position the window on the screen where the mouse cursor is located
         if let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }) {
@@ -41,7 +37,8 @@ class GlobalShortcutManager {
         captureWindowController?.setupEventMonitor()
         window.contentView = NSHostingView(rootView: captureView)
         window.makeKeyAndOrderFront(nil)
-        window.level = .floating
+        window.animator().hasShadow = true
+        window.animator().alphaValue = 1
         captureWindowController?.showWindow(nil)
     }
 }
