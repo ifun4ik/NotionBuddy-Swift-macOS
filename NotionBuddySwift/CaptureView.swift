@@ -28,8 +28,10 @@ struct CaptureView: View {
         .cornerRadius(8)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color(#colorLiteral(red: 0.8901960784, green: 0.937254902, blue: 0.968627451, alpha: 0.1)), lineWidth: 1)
+            .strokeBorder(Color(red: 0.88, green: 0.93, blue: 0.96).opacity(0.1), lineWidth: 1)
+            
         )
+        
     }
     
     private func handleCommit() {
