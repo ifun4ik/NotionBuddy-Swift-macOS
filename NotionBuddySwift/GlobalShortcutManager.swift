@@ -17,7 +17,12 @@ class GlobalShortcutManager {
 
     func showCaptureWindow() {
         DispatchQueue.main.async {
+            // Fetch the managed object context from the shared PersistenceController
+            let context = PersistenceController.shared.container.viewContext
+            
             let captureView = CaptureView()
+                .environment(\.managedObjectContext, context)
+
             let window = CustomWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 480, height: 200),
                 styleMask: [.borderless, .fullSizeContentView],
@@ -46,6 +51,4 @@ class GlobalShortcutManager {
             NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps])
         }
     }
-
-
 }
