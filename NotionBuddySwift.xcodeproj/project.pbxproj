@@ -16,6 +16,7 @@
 		8D54B6092AC2990700B9B01F /* GlobalShortcutManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D54B6082AC2990700B9B01F /* GlobalShortcutManager.swift */; };
 		8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D656A032A3C2F0E0065A725 /* WebView.swift */; };
 		8D8B95182A76964100DEDFFF /* EditTemplateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D8B95172A76964100DEDFFF /* EditTemplateView.swift */; };
+		8D9351D32AD8A6EA00366276 /* SwiftUIIntrospect in Frameworks */ = {isa = PBXBuildFile; productRef = 8D9351D22AD8A6EA00366276 /* SwiftUIIntrospect */; };
 		8D9435AF2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */; };
 		8D9435B42A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435B22A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld */; };
 		8D9435B62A3A461F00F7CC62 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D9435B52A3A461F00F7CC62 /* LoginView.swift */; };
@@ -91,6 +92,7 @@
 				8D54B6072AC227FA00B9B01F /* HotKey in Frameworks */,
 				8DF13C2E2A6295330030F889 /* SDWebImageSwiftUI in Frameworks */,
 				8DF13C312A6296CD0030F889 /* SDWebImageSVGCoder in Frameworks */,
+				8D9351D32AD8A6EA00366276 /* SwiftUIIntrospect in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -205,6 +207,7 @@
 				8DF13C2D2A6295330030F889 /* SDWebImageSwiftUI */,
 				8DF13C302A6296CD0030F889 /* SDWebImageSVGCoder */,
 				8D54B6062AC227FA00B9B01F /* HotKey */,
+				8D9351D22AD8A6EA00366276 /* SwiftUIIntrospect */,
 			);
 			productName = NotionBuddySwift;
 			productReference = 8D9435AB2A3A461F00F7CC62 /* NotionBuddySwift.app */;
@@ -283,6 +286,7 @@
 				8DF13C2C2A6295330030F889 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
 				8DF13C2F2A6296CD0030F889 /* XCRemoteSwiftPackageReference "SDWebImageSVGCoder" */,
 				8D54B6052AC227FA00B9B01F /* XCRemoteSwiftPackageReference "HotKey" */,
+				8D9351D12AD8A6EA00366276 /* XCRemoteSwiftPackageReference "SwiftUI-Introspect" */,
 			);
 			productRefGroup = 8D9435AC2A3A461F00F7CC62 /* Products */;
 			projectDirPath = "";
@@ -713,6 +717,14 @@
 				kind = branch;
 			};
 		};
+		8D9351D12AD8A6EA00366276 /* XCRemoteSwiftPackageReference "SwiftUI-Introspect" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/siteline/SwiftUI-Introspect.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.0;
+			};
+		};
 		8DD642DA2A611C2A006B96AE /* XCRemoteSwiftPackageReference "SVGKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/SVGKit/SVGKit.git";
@@ -744,6 +756,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 8D54B6052AC227FA00B9B01F /* XCRemoteSwiftPackageReference "HotKey" */;
 			productName = HotKey;
+		};
+		8D9351D22AD8A6EA00366276 /* SwiftUIIntrospect */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8D9351D12AD8A6EA00366276 /* XCRemoteSwiftPackageReference "SwiftUI-Introspect" */;
+			productName = SwiftUIIntrospect;
 		};
 		8DF13C2D2A6295330030F889 /* SDWebImageSwiftUI */ = {
 			isa = XCSwiftPackageProductDependency;

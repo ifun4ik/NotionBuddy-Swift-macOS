@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftUIIntrospect
 
 struct CaptureView: View {
     @FetchRequest(entity: Template.entity(), sortDescriptors: [])
@@ -9,6 +10,7 @@ struct CaptureView: View {
     
     var body: some View {
         VStack (spacing: 8) {
+            //MARK: Input part
             HStack (alignment: .center, spacing: 12) {
                 Image(systemName: "command")
                     .resizable()
@@ -26,6 +28,16 @@ struct CaptureView: View {
                         .weight(.medium)
                 )
                 .foregroundColor(Color(red: 0.88, green: 0.93, blue: 0.96))
+                .introspect(.textField, on: .macOS(.v10_15, .v11, .v12, .v13, .v14)) { textField in
+                    DispatchQueue.main.asyncAfter(deadline: .now()) {
+                        textField.becomeFirstResponder()
+                        textField.currentEditor()?.selectedRange = NSRange(location: textField.stringValue.count, length: 0)
+                    }
+                }
+
+
+
+
                 
             }
             .padding(16)
@@ -35,8 +47,9 @@ struct CaptureView: View {
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(Color(red: 0.88, green: 0.93, blue: 0.96).opacity(0.1), lineWidth: 1)
             )
+            
+            //MARK: Selection
             VStack (spacing: 0){
-                // Heading/H3
                 Group {
                     Text("Pick the template")
                         .font(
@@ -46,6 +59,10 @@ struct CaptureView: View {
                         .foregroundColor(Color(red: 0.88, green: 0.93, blue: 0.96))
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+                
                 ForEach (templates){ template in
                     HStack {
                         Text(template.name ?? "No template name")
@@ -57,10 +74,8 @@ struct CaptureView: View {
                     }
                     .padding(.horizontal, 16)
                     .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48, alignment: .leading)
-                    .background(Color(red: 0.04, green: 0.06, blue: 0.1))
                 }
             }
-            .padding(16)
             .background(Color(#colorLiteral(red: 0.035, green: 0.063, blue: 0.101, alpha: 1)))
             .cornerRadius(8)
             .overlay(
