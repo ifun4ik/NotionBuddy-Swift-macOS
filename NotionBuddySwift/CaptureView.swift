@@ -48,63 +48,63 @@ struct CaptureView: View {
             )
             
             //MARK: Selection
-           VStack (spacing: 0){
-               Group {
-                   Text("Pick the template")
-                       .font(Font.custom("Manrope", size: 16).weight(.semibold))
-                       .foregroundColor(Color(red: 0.88, green: 0.93, blue: 0.96))
-                       .frame(maxWidth: .infinity, alignment: .topLeading)
-               }
-               .padding(.horizontal, 16)
-               .padding(.top, 16)
-               .padding(.bottom, 8)
-               
-               if filteredTemplates.isEmpty {
-                   Text("Nothing found")
-                       .font(Font.custom("Manrope", size: 16).weight(.semibold))
-                       .foregroundColor(Color(red: 0.88, green: 0.93, blue: 0.96))
-                       .padding(.horizontal, 16)
-                       .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48, alignment: .leading)
-               } else {
-                   ForEach(filteredTemplates.prefix(5), id: \.self) { template in
-                       HStack {
-                           Text(template.name ?? "No template name")
-                               .font(Font.custom("Manrope", size: 16).weight(.semibold))
-                               .foregroundColor(Color(red: 0.88, green: 0.93, blue: 0.96))
-                       }
-                       .padding(.horizontal, 16)
-                       .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48, alignment: .leading)
-                   }
-               }
-           }
-           .frame(minHeight: minHeight, maxHeight: maxHeight)
-           .background(Color(#colorLiteral(red: 0.035, green: 0.063, blue: 0.101, alpha: 1)))
-           .cornerRadius(8)
-           .overlay(
-               RoundedRectangle(cornerRadius: 8)
-                   .strokeBorder(Color(red: 0.88, green: 0.93, blue: 0.96).opacity(0.1), lineWidth: 1)
-           )
-           
-       }
-       
-   }
-   
-   private var minHeight: CGFloat {
-       return CGFloat(filteredTemplates.count > 5 ? 5 : filteredTemplates.count) * 48 + 8 * 4
-   }
-   
-   private var maxHeight: CGFloat {
-       return CGFloat(filteredTemplates.count > 5 ? 5 : filteredTemplates.count) * 48 + 8 * 4
-   }
-   
-   private func handleCommit() {
-       print("Captured Text: \(capturedText)")
-       NotificationCenter.default.post(name: NSNotification.Name("CloseCaptureWindow"), object: nil)
-   }
+            VStack (spacing: 0){
+                Group {
+                    Text("Pick the template")
+                        .font(Font.custom("Manrope", size: 16).weight(.semibold))
+                        .foregroundColor(Color(red: 0.88, green: 0.93, blue: 0.96))
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+                
+                if filteredTemplates.isEmpty {
+                    Text("Nothing found")
+                        .font(Font.custom("Manrope", size: 16).weight(.semibold))
+                        .foregroundColor(Color(red: 0.88, green: 0.93, blue: 0.96))
+                        .padding(.horizontal, 16)
+                        .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48, alignment: .leading)
+                } else {
+                    ForEach(filteredTemplates.prefix(5), id: \.self) { template in
+                        HStack {
+                            Text(template.name ?? "No template name")
+                                .font(Font.custom("Manrope", size: 16).weight(.semibold))
+                                .foregroundColor(Color(red: 0.88, green: 0.93, blue: 0.96))
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48, alignment: .leading)
+                    }
+                }
+            }
+            .frame(minHeight: minHeight, maxHeight: maxHeight)
+            .background(Color(#colorLiteral(red: 0.035, green: 0.063, blue: 0.101, alpha: 1)))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color(red: 0.88, green: 0.93, blue: 0.96).opacity(0.1), lineWidth: 1)
+            )
+            
+        }
+        
+    }
+    
+    private var minHeight: CGFloat {
+        return filteredTemplates.isEmpty ? 48 + 8 * 4 : CGFloat(filteredTemplates.count > 5 ? 5 : filteredTemplates.count) * 48 + 8 * 4
+    }
+    
+    private var maxHeight: CGFloat {
+        return filteredTemplates.isEmpty ? 48 + 8 * 4 : CGFloat(filteredTemplates.count > 5 ? 5 : filteredTemplates.count) * 48 + 8 * 4
+    }
+    
+    private func handleCommit() {
+        print("Captured Text: \(capturedText)")
+        NotificationCenter.default.post(name: NSNotification.Name("CloseCaptureWindow"), object: nil)
+    }
 }
 
 struct CaptureView_Previews: PreviewProvider {
-   static var previews: some View {
-       CaptureView()
-   }
+    static var previews: some View {
+        CaptureView()
+    }
 }
