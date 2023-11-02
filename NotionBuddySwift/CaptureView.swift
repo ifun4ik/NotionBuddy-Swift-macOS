@@ -52,6 +52,7 @@ struct CaptureView: View {
                 Image(systemName: "command")
                     .resizable()
                     .frame(width: 16, height: 16)
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Constants.iconSecondary)
                 
                 // Display the template name and arrow icon if a template is committed
@@ -66,6 +67,7 @@ struct CaptureView: View {
                         
                         Image(systemName: "chevron.right")
                             .foregroundColor(Constants.iconSecondary)
+                            .font(.system(size: 12, weight: .bold))
                     }
                 }
                 
