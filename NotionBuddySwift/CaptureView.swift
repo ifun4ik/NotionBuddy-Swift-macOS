@@ -8,7 +8,8 @@ struct CaptureView: View {
     @Environment(\.managedObjectContext) private var managedObjectContext
     
     @State private var capturedText: String = ""
-    @State private var selectedIndex: Int? = nil  // Track the index of the selected template
+    @State private var selectedIndex: Int? = nil  // Track the index of the focused template
+    @State private var committedTemplate: Template? = nil  // Track the template that has been committed (selected with Enter)
     
     private var filteredTemplates: [Template] {
         return templates.filter {
@@ -20,12 +21,28 @@ struct CaptureView: View {
         return Array(filteredTemplates.prefix(5))
     }
     
+    private var textFieldText: String {
+        if let committedTemplate = committedTemplate {
+            return committedTemplate.name ?? ""
+        } else {
+            return capturedText
+        }
+    }
+    
     private var minHeight: CGFloat {
-        return filteredTemplates.isEmpty ? 48 + 8 * 4 : CGFloat(displayTemplates.count) * 48 + 8 * 4
+        if let committedTemplate = committedTemplate {
+            return max(CGFloat(TemplateViewModel(template: committedTemplate).templateFields.count) * 48 + 8 * 4, 48 + 8 * 4)
+        } else {
+            return filteredTemplates.isEmpty ? 48 + 8 * 4 : CGFloat(displayTemplates.count) * 48 + 8 * 4
+        }
     }
     
     private var maxHeight: CGFloat {
-        return filteredTemplates.isEmpty ? 48 + 8 * 4 : CGFloat(displayTemplates.count) * 48 + 8 * 4
+        if let committedTemplate = committedTemplate {
+            return max(CGFloat(TemplateViewModel(template: committedTemplate).templateFields.count) * 48 + 8 * 4, 48 + 8 * 4)
+        } else {
+            return filteredTemplates.isEmpty ? 48 + 8 * 4 : CGFloat(displayTemplates.count) * 48 + 8 * 4
+        }
     }
     
     var body: some View {
@@ -37,7 +54,22 @@ struct CaptureView: View {
                     .frame(width: 16, height: 16)
                     .foregroundColor(Constants.iconSecondary)
                 
-                TextField("Type something...", text: $capturedText)
+                // Display the template name and arrow icon if a template is committed
+                if committedTemplate != nil {
+                    HStack (spacing: 4) {
+                        Text(textFieldText)
+                            .font(
+                                Font.custom("SF Pro Text", size: 16)
+                                    .weight(.medium)
+                            )
+                            .foregroundColor(Constants.textPrimary)
+                        
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(Constants.iconSecondary)
+                    }
+                }
+                
+                TextField(committedTemplate != nil ? "" : "Type something...", text: $capturedText)
                     .frame(height: 22)
                     .padding(.top, 2)
                     .textFieldStyle(.plain)
@@ -67,7 +99,16 @@ struct CaptureView: View {
             
             //MARK: Selection
             VStack (spacing: 0){
-                if displayTemplates.isEmpty {
+                if let committedTemplate = committedTemplate {
+                    // Display committed template's fields instead of templates
+                    ForEach(TemplateViewModel(template: committedTemplate).templateFields, id: \.id) { field in
+                        Text(field.name)
+                            .font(Font.custom("Onest", size: 16).weight(.semibold))
+                            .foregroundColor(Constants.textPrimary)
+                            .padding(.horizontal, 16)
+                            .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48, alignment: .leading)
+                    }
+                } else if displayTemplates.isEmpty {
                     Text("Nothing found")
                         .font(Font.custom("Manrope", size: 16).weight(.semibold))
                         .foregroundColor(Constants.textPrimary)
@@ -133,12 +174,10 @@ struct CaptureView: View {
         }
     }
     
-    private func handleCommit(_ selectedTemplate: Template? = nil) {
-        if let selectedTemplate = selectedTemplate {
-            print("Selected Template: \(selectedTemplate.name ?? "No name")")
-        } else {
-            print("Captured Text: \(capturedText)")
-        }
+    private func handleCommit(_ selectedTemplate: Template) {
+        committedTemplate = selectedTemplate
+        capturedText = ""
+        selectedIndex = templates.firstIndex(of: selectedTemplate)
         NotificationCenter.default.post(name: NSNotification.Name("CloseCaptureWindow"), object: nil)
     }
 }
