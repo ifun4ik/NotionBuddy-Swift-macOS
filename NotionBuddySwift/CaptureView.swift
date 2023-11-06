@@ -11,6 +11,8 @@ struct CaptureView: View {
     @State private var selectedIndex: Int? = nil  // Track the index of the focused template
     @State private var committedTemplate: Template? = nil  // Track the template that has been committed (selected with Enter)
     @State private var activeFieldIndex: Int? = nil  // Track the index of the active (focused) field
+    @State private var filledFields: Set<Int> = []  // Track the indices of filled fields
+    @State private var isPlaceholderActive: Bool = true
     
     private var filteredTemplates: [Template] {
         return templates.filter {
@@ -27,17 +29,15 @@ struct CaptureView: View {
         return TemplateViewModel(template: committedTemplate).templateFields.filter { $0.priority != "skip" }
     }
     
-    private var textFieldText: String {
-        if let committedTemplate = committedTemplate {
-            return committedTemplate.name ?? ""
-        } else {
-            return capturedText
+    private var textFieldPlaceholder: String {
+        if let firstField = displayFields.first, isPlaceholderActive {
+            return firstField.defaultValue ?? ""
         }
+        return "Type something..."
     }
     
     var body: some View {
         VStack (spacing: 8) {
-            //MARK: Input part
             HStack (alignment: .center, spacing: 12) {
                 Image(systemName: "command")
                     .resizable()
@@ -45,10 +45,9 @@ struct CaptureView: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Constants.iconSecondary)
                 
-                // Display the template name and arrow icon if a template is committed
-                if committedTemplate != nil {
+                if let committedTemplate = committedTemplate {
                     HStack (spacing: 4) {
-                        Text(textFieldText)
+                        Text(committedTemplate.name ?? "")
                             .font(
                                 Font.custom("SF Pro Text", size: 16)
                                     .weight(.medium)
@@ -61,7 +60,7 @@ struct CaptureView: View {
                     }
                 }
                 
-                TextField(committedTemplate != nil ? "" : "Type something...", text: $capturedText)
+                TextField(textFieldPlaceholder, text: $capturedText)
                     .frame(height: 22)
                     .padding(.top, 2)
                     .textFieldStyle(.plain)
@@ -74,6 +73,20 @@ struct CaptureView: View {
                         DispatchQueue.main.asyncAfter(deadline: .now()) {
                             textField.becomeFirstResponder()
                             textField.currentEditor()?.selectedRange = NSRange(location: textField.stringValue.count, length: 0)
+                            // Set the first field as active by default when a template is committed
+                            if committedTemplate != nil, displayFields.count > 0 {
+                                activeFieldIndex = 0
+                                isPlaceholderActive = displayFields.first?.defaultValue != nil
+                            }
+                        }
+                    }
+                    .onChange(of: capturedText) { newValue in
+                        if activeFieldIndex == 0 && !filledFields.contains(0) {
+                            // If the user starts typing in the first field, clear the placeholder
+                            if newValue != textFieldPlaceholder && isPlaceholderActive {
+                                capturedText = newValue
+                                isPlaceholderActive = false
+                            }
                         }
                     }
                     .onAppear {
@@ -89,10 +102,8 @@ struct CaptureView: View {
                     .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
             )
             
-            //MARK: Selection
             VStack (spacing: 0){
                 if let committedTemplate = committedTemplate {
-                    // Display committed template's fields instead of templates
                     ForEach(Array(displayFields.enumerated()), id: \.element.id) { index, field in
                         HStack (spacing: 16){
                             iconForField(field: field, index: index)
@@ -109,8 +120,9 @@ struct CaptureView: View {
                         }
                         .padding(.horizontal, 16)
                         .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
-                        .background(index == activeFieldIndex ? Color.blue.opacity(0.2) : Color.clear)
+                        .background(index == activeFieldIndex ? Constants.bgPrimaryHover : Color.clear)
                         .onTapGesture {
+                            // Handle tap gesture to select a field
                             activeFieldIndex = index
                         }
                     }
@@ -129,7 +141,7 @@ struct CaptureView: View {
                         }
                         .padding(.horizontal, 16)
                         .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
-                        .background(index == selectedIndex ? Color.blue.opacity(0.2) : Color.clear)
+                        .background(index == selectedIndex ? Constants.bgPrimaryHover : Color.clear)
                         .onTapGesture {
                             selectedIndex = index
                         }
@@ -170,12 +182,51 @@ struct CaptureView: View {
                 selectedIndex = displayTemplates.count - 1
             }
         case 36:  // Enter/Return key
-            if let index = selectedIndex, index < displayTemplates.count {
+            if let committedTemplate = committedTemplate {
+                // Handle Enter key event when a template is committed
+                handleFieldCommit()
+            } else if let index = selectedIndex, index < displayTemplates.count {
+                // Handle Enter key event for template selection
                 let selectedTemplate = displayTemplates[index]
                 handleCommit(selectedTemplate)
             }
         default:
             break
+        }
+    }
+    
+    private func handleFieldCommit() {
+        if let index = activeFieldIndex, index < displayFields.count {
+            if displayFields[index].priority == "required" && capturedText.isEmpty && displayFields[index].defaultValue == nil {
+                // If the field is required and empty, do not proceed
+                return
+            }
+            
+            // Mark the current field as filled
+            filledFields.insert(index)
+            if index < displayFields.count - 1 {
+                // Move to the next field
+                activeFieldIndex = index + 1
+                isPlaceholderActive = displayFields[activeFieldIndex!].defaultValue != nil
+                // Reset the captured text for the next field
+                capturedText = ""
+            } else {
+                // Last field was filled, log the filled template to the console
+                printFilledTemplate()
+                // Reset for the next template capture
+                committedTemplate = nil
+                activeFieldIndex = nil
+                filledFields.removeAll()
+                isPlaceholderActive = true
+                capturedText = ""
+            }
+        }
+    }
+    
+    private func printFilledTemplate() {
+        print("Filled Template:")
+        for field in displayFields {
+            print("\(field.name): \(field.defaultValue ?? "")")
         }
     }
     
@@ -188,14 +239,11 @@ struct CaptureView: View {
     
     private func iconForField(field: EditableTemplateFieldViewData, index: Int) -> some View {
         let iconName: String
-        switch field.priority {
-        case "optional":
-            iconName = "square.dashed"
-        case "active" where index == activeFieldIndex:
-            iconName = "dot.square"
-        case "filled":
+        if filledFields.contains(index) {
             iconName = "checkmark.square"
-        default:
+        } else if index == activeFieldIndex {
+            iconName = "dot.square"
+        } else {
             iconName = "square"
         }
         
@@ -218,4 +266,5 @@ struct Constants {
     static let iconSecondary: Color = Color(red: 0.62, green: 0.62, blue: 0.65)
     static let textPrimary: Color = Color(red: 0.27, green: 0.29, blue: 0.38)
     static let textSecondary: Color = Color(red: 0.43, green: 0.42, blue: 0.44)
+    static let bgPrimaryHover: Color = Color(red: 0.95, green: 0.95, blue: 0.95)
 }
