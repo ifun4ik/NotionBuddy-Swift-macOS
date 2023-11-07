@@ -30,8 +30,8 @@ struct CaptureView: View {
     }
     
     private var textFieldPlaceholder: String {
-        if let firstField = displayFields.first, isPlaceholderActive {
-            return firstField.defaultValue ?? ""
+        if isPlaceholderActive, let index = activeFieldIndex, index < displayFields.count {
+            return displayFields[index].defaultValue ?? ""
         }
         return "Type something..."
     }
@@ -73,10 +73,24 @@ struct CaptureView: View {
                         DispatchQueue.main.asyncAfter(deadline: .now()) {
                             textField.becomeFirstResponder()
                             textField.currentEditor()?.selectedRange = NSRange(location: textField.stringValue.count, length: 0)
-                            // Set the first field as active by default when a template is committed
-                            if committedTemplate != nil, displayFields.count > 0 {
+
+                            // Set the active field as default when a template is committed
+                            if committedTemplate != nil, let index = activeFieldIndex, index < displayFields.count {
+                                isPlaceholderActive = displayFields[index].defaultValue != nil
+                            } else if committedTemplate != nil {
+                                // If no active field index is set, default to the first field
                                 activeFieldIndex = 0
                                 isPlaceholderActive = displayFields.first?.defaultValue != nil
+                            }
+
+                            // Set the placeholder text color and font
+                            if let placeholderString = textField.placeholderString {
+                                let placeholderFont = NSFont(name: "SF Pro Text", size: 16) ?? NSFont.systemFont(ofSize: 16)
+                                let placeholderAttributes: [NSAttributedString.Key: Any] = [
+                                    .foregroundColor: NSColor(Constants.textSecondary),
+                                    .font: placeholderFont
+                                ]
+                                textField.placeholderAttributedString = NSAttributedString(string: placeholderString, attributes: placeholderAttributes)
                             }
                         }
                     }
