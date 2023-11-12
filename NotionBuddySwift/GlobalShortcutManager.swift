@@ -6,6 +6,7 @@ class GlobalShortcutManager {
     static let shared = GlobalShortcutManager()
     var captureHotKey: HotKey?
     var captureWindowController: CaptureWindowController?
+    
 
     private init() {}
 
