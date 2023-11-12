@@ -179,7 +179,6 @@ struct CaptureView: View {
         if let committedTemplate = committedTemplate, let activeFieldIndex = activeFieldIndex {
             switch event.keyCode {
             case 36:  // Enter/Return key
-                print("Hey from 182")
                 captureCurrentFieldData()
                 moveToNextFieldOrFinish()
             default:
@@ -194,12 +193,12 @@ struct CaptureView: View {
         guard let activeFieldIndex = activeFieldIndex, activeFieldIndex < displayFields.count else { return }
         let field = displayFields[activeFieldIndex]
         capturedData[field.name] = capturedText.isEmpty ? (field.defaultValue ?? "") : capturedText
+        print("In-middle captured: \(capturedData)")
         filledFields.insert(activeFieldIndex)
     }
 
     private func moveToNextFieldOrFinish() {
         if activeFieldIndex == displayFields.count - 1 {
-            print("Move Next Called")
             finishCapture()
         } else {
             activeFieldIndex! += 1
@@ -224,7 +223,6 @@ struct CaptureView: View {
         case 36:  // Enter/Return key
             if let index = selectedIndex {
                 commitTemplate(displayTemplates[index])
-                print("Hey from 227")
             }
         default:
             break
@@ -232,11 +230,10 @@ struct CaptureView: View {
     }
 
     private func cmdEnterPressed() {
+        captureCurrentFieldData()
         captureAllFieldData()
         if validateRequiredFields() {
-            print("Cmd+Enter Called")
             finishCapture()
-            captureCurrentFieldData()
             closeCaptureView()  // Implement this method to close the capture view
         } else {
             highlightUnfilledRequiredFields()
@@ -245,7 +242,8 @@ struct CaptureView: View {
 
     private func captureAllFieldData() {
         for (index, field) in displayFields.enumerated() {
-            let fieldValue = index == activeFieldIndex ? capturedText : (capturedData[field.name] ?? field.defaultValue ?? "")
+            let fieldValue = (capturedData[field.name] ?? field.defaultValue ?? "")
+            
             capturedData[field.name] = fieldValue
             filledFields.insert(index)
         }
@@ -273,7 +271,6 @@ struct CaptureView: View {
         capturedData = [:]
         committedTemplate = nil
         capturedText = ""
-        print("Captured Data: \(capturedData)")
         // Additional logic to handle captured data
     }
 
