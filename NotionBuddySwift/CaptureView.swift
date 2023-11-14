@@ -14,6 +14,7 @@ struct CaptureView: View {
     @State private var filledFields: Set<Int> = []
     @State private var isPlaceholderActive: Bool = true
     @State private var capturedData: [String: String] = [:]
+    @State private var attemptedFinish: Bool = false
     
     private var filteredTemplates: [Template] {
         return templates.filter {
@@ -179,8 +180,21 @@ struct CaptureView: View {
         if let committedTemplate = committedTemplate, let activeFieldIndex = activeFieldIndex {
             switch event.keyCode {
             case 36:  // Enter/Return key
-                captureCurrentFieldData()
-                moveToNextFieldOrFinish()
+                let field = displayFields.indices.contains(activeFieldIndex) ? displayFields[activeFieldIndex] : nil
+                if let field = field, field.priority == "mandatory" {
+                    if capturedText.isEmpty && (field.defaultValue ?? "").isEmpty {
+                        attemptedFinish = true
+                        // Optionally, add logic to visually indicate the field needs attention
+                    } else {
+                        // Use default value if capturedText is empty
+                        capturedText = capturedText.isEmpty ? (field.defaultValue ?? "") : capturedText
+                        captureCurrentFieldData()
+                        moveToNextFieldOrFinish()
+                    }
+                } else {
+                    captureCurrentFieldData()
+                    moveToNextFieldOrFinish()
+                }
             default:
                 break
             }
@@ -189,17 +203,30 @@ struct CaptureView: View {
         }
     }
 
+
+
     private func captureCurrentFieldData() {
         guard let activeFieldIndex = activeFieldIndex, activeFieldIndex < displayFields.count else { return }
         let field = displayFields[activeFieldIndex]
-        capturedData[field.name] = capturedText.isEmpty ? (field.defaultValue ?? "") : capturedText
+        let fieldData = capturedText.isEmpty ? (field.defaultValue ?? "") : capturedText
+
+        // Only capture data if it's not a mandatory field with an empty value
+        if field.priority != "mandatory" || !fieldData.isEmpty {
+            capturedData[field.name] = fieldData
+            filledFields.insert(activeFieldIndex)
+        }
+
         print("In-middle captured: \(capturedData)")
-        filledFields.insert(activeFieldIndex)
     }
 
     private func moveToNextFieldOrFinish() {
         if activeFieldIndex == displayFields.count - 1 {
-            finishCapture()
+            if validateRequiredFields() {
+                finishCapture()
+            } else {
+                highlightUnfilledRequiredFields()
+                // Notify user to fill mandatory fields
+            }
         } else {
             activeFieldIndex! += 1
             capturedText = ""
@@ -236,6 +263,7 @@ struct CaptureView: View {
             finishCapture()
             closeCaptureView()  // Implement this method to close the capture view
         } else {
+            attemptedFinish = true
             highlightUnfilledRequiredFields()
         }
     }
@@ -250,7 +278,7 @@ struct CaptureView: View {
     }
 
     private func validateRequiredFields() -> Bool {
-        for field in displayFields where field.priority == "required" {
+        for field in displayFields where field.priority == "mandatory" {
             if (capturedData[field.name] ?? "").isEmpty {
                 return false
             }
@@ -260,18 +288,25 @@ struct CaptureView: View {
 
     private func highlightUnfilledRequiredFields() {
         for (index, field) in displayFields.enumerated() {
-            if field.priority == "required" && (capturedData[field.name] ?? "").isEmpty {
+            if field.priority == "mandatory" && (capturedData[field.name] ?? "").isEmpty {
                 filledFields.remove(index)
+                // Additional logic to visually highlight the field
             }
         }
     }
 
     private func finishCapture() {
-        print("Capture Finished - Captured Data: \(capturedData)")
-        capturedData = [:]
-        committedTemplate = nil
-        capturedText = ""
-        // Additional logic to handle captured data
+        if validateRequiredFields() {
+            print("Capture Finished - Captured Data: \(capturedData)")
+            capturedData = [:]
+            committedTemplate = nil
+            capturedText = ""
+            // Additional logic to handle captured data
+        } else {
+            attemptedFinish = true
+            highlightUnfilledRequiredFields()
+            // Notify user to fill mandatory fields
+        }
     }
 
     private func closeCaptureView() {
@@ -296,21 +331,30 @@ struct CaptureView: View {
 
     private func iconForField(field: EditableTemplateFieldViewData, index: Int) -> some View {
         let iconName: String
-        let isFieldFilled = filledFields.contains(index)
-        let isFieldRequiredAndEmpty = field.priority == "required" && (capturedData[field.name] ?? "").isEmpty
+        let iconColor: Color
+        let isFieldMandatory = field.priority == "mandatory"
+        let isFieldFilled = filledFields.contains(index) || !(capturedData[field.name] ?? "").isEmpty
 
-        if isFieldFilled && !isFieldRequiredAndEmpty {
+        if isFieldMandatory && isFieldFilled {
             iconName = "checkmark.square"
-        } else if isFieldRequiredAndEmpty {
-            iconName = "exclamationmark.triangle"
+            iconColor = Constants.iconSecondary
+        } else if isFieldMandatory && !isFieldFilled {
+            if attemptedFinish {
+                iconName = "exclamationmark.triangle"
+                iconColor = Color.red
+            } else {
+                iconName = "square"
+                iconColor = Color.orange
+            }
         } else {
             iconName = "square"
+            iconColor = Constants.iconSecondary
         }
 
         return Image(systemName: iconName)
             .resizable()
             .frame(width: 16, height: 16)
-            .foregroundColor(isFieldRequiredAndEmpty ? Color.red : Constants.iconSecondary)
+            .foregroundColor(iconColor)
     }
 
 }
@@ -328,4 +372,5 @@ struct CaptureView: View {
         static let textPrimary: Color = Color(red: 0.27, green: 0.29, blue: 0.38)
         static let textSecondary: Color = Color(red: 0.43, green: 0.42, blue: 0.44)
         static let bgPrimaryHover: Color = Color(red: 0.95, green: 0.95, blue: 0.95)
+        static let colorPrimary: Color = Color(red: 0.42, green: 0.50, blue: 1.00)
     }
