@@ -3,4 +3,54 @@
    uuid = "D270DE22-3BEB-4FE7-BE2C-F8146F473231"
    type = "1"
    version = "2.0">
+   <Breakpoints>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "933E4771-94E6-4F4C-A634-4BD8D318C635"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "NotionBuddySwift/CaptureView.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "31"
+            endingLineNumber = "31"
+            landmarkName = "displayFields"
+            landmarkType = "24">
+            <Locations>
+               <Location
+                  uuid = "933E4771-94E6-4F4C-A634-4BD8D318C635 - ca0bb58908c1074b"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "NotionBuddySwift.CaptureView.displayFields.getter : Swift.Array&lt;NotionBuddySwift.EditableTemplateFieldViewData&gt;"
+                  moduleName = "NotionBuddySwift"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gl1n/Developer/NotionBuddySwift/NotionBuddySwift/CaptureView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "31"
+                  endingLineNumber = "31"
+                  offsetFromSymbolStart = "388">
+               </Location>
+               <Location
+                  uuid = "933E4771-94E6-4F4C-A634-4BD8D318C635 - 80d307da00448288"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #1 (NotionBuddySwift.EditableTemplateFieldViewData) -&gt; Swift.Bool in NotionBuddySwift.CaptureView.displayFields.getter : Swift.Array&lt;NotionBuddySwift.EditableTemplateFieldViewData&gt;"
+                  moduleName = "NotionBuddySwift"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/gl1n/Developer/NotionBuddySwift/NotionBuddySwift/CaptureView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "31"
+                  endingLineNumber = "31"
+                  offsetFromSymbolStart = "40">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+   </Breakpoints>
 </Bucket>

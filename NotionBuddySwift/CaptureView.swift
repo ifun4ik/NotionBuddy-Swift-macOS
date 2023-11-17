@@ -109,6 +109,13 @@ struct CaptureView: View {
                     .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
             )
             
+            // Select Options View
+            if let activeField = getActiveField(), activeField.kind == "select" {
+                // Present the SelectOptionsView with the options of the active field
+                SelectOptionsView(options: activeField.options ?? ["No options available"])
+            }
+
+            
             VStack(spacing: 0) {
                 if let committedTemplate = committedTemplate {
                     ForEach(Array(displayFields.enumerated()), id: \.element.id) { index, field in
@@ -164,6 +171,61 @@ struct CaptureView: View {
             )
         }
     }
+    
+    //MARK: Select view
+    struct SelectOptionsView: View {
+        var options: [String]
+
+        var body: some View {
+            VStack(alignment: .leading) {
+                ForEach(options.isEmpty ? ["No options available"] : options, id: \.self) { option in
+                    Text(option)
+                        .font(Font.custom("Onest", size: 16).weight(.semibold))
+                        .foregroundColor(Constants.textPrimary)
+                        .padding(.vertical, 4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .onTapGesture {
+                            print("Option selected: \(option)")
+                            // Handle option selection
+                        }
+                }
+            }
+            .padding(.horizontal, 16)
+            .background(Constants.bgPrimary)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .inset(by: 1)
+                    .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
+            )
+        }
+    }
+
+    
+    // Helper function to get the currently active field
+    func getActiveField() -> EditableTemplateFieldViewData? {
+        guard let activeFieldIndex = activeFieldIndex, displayFields.indices.contains(activeFieldIndex) else { return nil }
+        let activeField = displayFields[activeFieldIndex]
+
+        // Print field details
+        print("⚠️ NEW FIELD ⚠️")
+        print("Name: \(activeField.name)")
+        print("Default Value: \(activeField.defaultValue ?? "No Default Value")")
+        print("Priority: \(activeField.priority)")
+        print("Kind: \(activeField.kind)")
+
+        // Handling options
+        if let options = activeField.options, !options.isEmpty {
+            print("Options: \(options.joined(separator: ", "))")
+        } else {
+            print("Options: No Options")
+        }
+
+        return activeField
+    }
+
+    
+    
     private func setupKeyEventHandling() {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             self.handleKeyEvent(event)
@@ -180,20 +242,24 @@ struct CaptureView: View {
         if let committedTemplate = committedTemplate, let activeFieldIndex = activeFieldIndex {
             switch event.keyCode {
             case 36:  // Enter/Return key
-                let field = displayFields.indices.contains(activeFieldIndex) ? displayFields[activeFieldIndex] : nil
-                if let field = field, field.priority == "mandatory" {
-                    if capturedText.isEmpty && (field.defaultValue ?? "").isEmpty {
-                        attemptedFinish = true
-                        // Optionally, add logic to visually indicate the field needs attention
+                // Check if the index is within the range of `displayFields`
+                if displayFields.indices.contains(activeFieldIndex) {
+                    let field = displayFields[activeFieldIndex]
+                    // Directly check the field's priority
+                    if field.priority == "mandatory" {
+                        if capturedText.isEmpty && (field.defaultValue ?? "").isEmpty {
+                            attemptedFinish = true
+                            // Optionally, add logic to visually indicate the field needs attention
+                        } else {
+                            // Use default value if capturedText is empty
+                            capturedText = capturedText.isEmpty ? (field.defaultValue ?? "") : capturedText
+                            captureCurrentFieldData()
+                            moveToNextFieldOrFinish()
+                        }
                     } else {
-                        // Use default value if capturedText is empty
-                        capturedText = capturedText.isEmpty ? (field.defaultValue ?? "") : capturedText
                         captureCurrentFieldData()
                         moveToNextFieldOrFinish()
                     }
-                } else {
-                    captureCurrentFieldData()
-                    moveToNextFieldOrFinish()
                 }
             default:
                 break
@@ -215,11 +281,12 @@ struct CaptureView: View {
             capturedData[field.name] = fieldData
             filledFields.insert(activeFieldIndex)
         }
-
-        print("In-middle captured: \(capturedData)")
     }
 
     private func moveToNextFieldOrFinish() {
+        // Check if activeFieldIndex is valid before proceeding
+        guard let activeFieldIndex = activeFieldIndex, displayFields.indices.contains(activeFieldIndex) else { return }
+
         if activeFieldIndex == displayFields.count - 1 {
             if validateRequiredFields() {
                 finishCapture()
@@ -228,7 +295,7 @@ struct CaptureView: View {
                 // Notify user to fill mandatory fields
             }
         } else {
-            activeFieldIndex! += 1
+            self.activeFieldIndex! += 1
             capturedText = ""
         }
     }
@@ -334,8 +401,15 @@ struct CaptureView: View {
         let iconColor: Color
         let isFieldMandatory = field.priority == "mandatory"
         let isFieldFilled = filledFields.contains(index) || !(capturedData[field.name] ?? "").isEmpty
-
-        if isFieldMandatory && isFieldFilled {
+        
+        if activeFieldIndex == index && !isFieldFilled{
+            iconName = "dot.square"
+            if isFieldMandatory {
+                iconColor = Color.orange
+            } else {
+                iconColor = Constants.colorPrimary
+            }
+        } else if isFieldFilled {
             iconName = "checkmark.square"
             iconColor = Constants.iconSecondary
         } else if isFieldMandatory && !isFieldFilled {
