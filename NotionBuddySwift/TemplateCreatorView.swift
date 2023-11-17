@@ -256,6 +256,15 @@ struct TemplateCreatorView: View {
             newField.order = fieldViewData.order
             newField.priority = fieldViewData.priority.rawValue
             newField.kind = fieldViewData.kind
+            if let options = fieldViewData.options {
+                do {
+                    let data = try NSKeyedArchiver.archivedData(withRootObject: options, requiringSecureCoding: false) as NSData
+                    newField.options = data
+                } catch {
+                    print("Failed to archive options: \(error)")
+                }
+            }
+
             newTemplate.addToFields(newField)
         }
         

@@ -8,6 +8,7 @@ struct NotionBuddyApp: App {
 
     init() {
         GlobalShortcutManager.shared.setupGlobalShortcut()
+        StringArrayTransformer.register()
     }
 
     var body: some Scene {

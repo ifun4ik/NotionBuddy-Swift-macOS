@@ -22,11 +22,23 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
         checkFieldOptionsConflicts(with: templateField)
 
         // Check if there's a default value, if not and it's a picker type, set the first option
-        if let options = self.options, !options.isEmpty {
-            // If default value is empty, set it to the first option
-            if self.defaultValue.isEmpty {
-                self.defaultValue = options[0]
+        if let optionsData = templateField.options as? Data {
+            do {
+                // Attempt to unarchive the data
+                if let optionsArray = try NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(optionsData) as? [String] {
+                    self.options = optionsArray
+                    print("Transformed options: \(optionsArray)")
+                } else {
+                    print("Failed to unarchive options data")
+                    self.options = []
+                }
+            } catch {
+                print("Error unarchiving options data: \(error)")
+                self.options = []
             }
+        } else {
+            print("Options attribute is not Data type or is nil")
+            self.options = []
         }
     }
 
