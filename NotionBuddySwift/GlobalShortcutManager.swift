@@ -3,25 +3,35 @@ import Cocoa
 import SwiftUI
 
 class GlobalShortcutManager {
+    
+    var sessionManager: SessionManager?
     static let shared = GlobalShortcutManager()
     var captureHotKey: HotKey?
     var captureWindowController: CaptureWindowController?
-    
 
     private init() {}
 
-    func setupGlobalShortcut() {
+    func setupGlobalShortcut(sessionManager: SessionManager) {
+        self.sessionManager = sessionManager
         captureHotKey = HotKey(key: .n, modifiers: [.command, .control], keyDownHandler: {
             self.showCaptureWindow()
         })
     }
-
+    
+    
     func showCaptureWindow() {
+        guard let sessionManager = sessionManager else {
+            print("SessionManager not set in GlobalShortcutManager")
+            return
+        }
+
+        var accessToken: String = sessionManager.accounts[sessionManager.selectedAccountIndex].accessToken
+        
         DispatchQueue.main.async {
             // Fetch the managed object context from the shared PersistenceController
             let context = PersistenceController.shared.container.viewContext
             
-            let captureView = CaptureView()
+            let captureView = CaptureView(accessToken: accessToken)
                 .environment(\.managedObjectContext, context)
 
             let window = CustomWindow(

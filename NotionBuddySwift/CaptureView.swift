@@ -3,6 +3,7 @@ import SwiftUIIntrospect
 import Combine
 
 struct CaptureView: View {
+    
     @FetchRequest(entity: Template.entity(), sortDescriptors: [])
     var templates: FetchedResults<Template>
     @Environment(\.managedObjectContext) private var managedObjectContext
@@ -15,6 +16,9 @@ struct CaptureView: View {
     @State private var isPlaceholderActive: Bool = true
     @State private var capturedData: [String: String] = [:]
     @State private var attemptedFinish: Bool = false
+    @State private var optionsForSelectField: [String] = []
+    
+    var accessToken: String
     
     private var filteredTemplates: [Template] {
         return templates.filter {
@@ -33,10 +37,11 @@ struct CaptureView: View {
     
     private var textFieldPlaceholder: String {
         if isPlaceholderActive, let index = activeFieldIndex, index < displayFields.count {
-            return displayFields[index].defaultValue ?? ""
+            return displayFields[index].defaultValue
         }
         return "Type something..."
     }
+    
     
     var body: some View {
         VStack(spacing: 8) {
@@ -109,11 +114,10 @@ struct CaptureView: View {
                     .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
             )
             
-            // Select Options View
             if let activeField = getActiveField(), activeField.kind == "select" {
-                // Present the SelectOptionsView with the options of the active field
-                SelectOptionsView(options: activeField.options ?? ["No options available"])
+                SelectOptionsView(options: optionsForSelectField, maxVisibleOptions: 4)
             }
+
 
             
             VStack(spacing: 0) {
@@ -175,23 +179,39 @@ struct CaptureView: View {
     //MARK: Select view
     struct SelectOptionsView: View {
         var options: [String]
-
+        let maxVisibleOptions: Int
+        private let optionHeight: CGFloat = 44 // Adjust the height for each option as needed
+        
+        // Computed property to determine the height of the container
+        private var containerHeight: CGFloat {
+            let count = min(options.count, maxVisibleOptions)
+            return CGFloat(count) * optionHeight
+        }
+        
         var body: some View {
             VStack(alignment: .leading) {
-                ForEach(options.isEmpty ? ["No options available"] : options, id: \.self) { option in
-                    Text(option)
-                        .font(Font.custom("Onest", size: 16).weight(.semibold))
-                        .foregroundColor(Constants.textPrimary)
-                        .padding(.vertical, 4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .onTapGesture {
-                            print("Option selected: \(option)")
-                            // Handle option selection
+                ScrollView {
+                    LazyVStack(alignment: .leading) {
+                        ForEach(options.prefix(maxVisibleOptions), id: \.self) { option in
+                            Group {
+                                Text(option)
+//                                    .contentShape(Rectangle()) // Make the whole row tappable
+                                    .font(Font.custom("Onest", size: 16).weight(.semibold))
+                                    .foregroundColor(Constants.textPrimary)
+                            } 
+                                .padding(.horizontal, 16)
+                                .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
+                                .onTapGesture {
+                                    print("Option selected: \(option)")
+                                    // Handle option selection
+                                }
+                                .background(Constants.bgPrimary) // Match the background here
                         }
+                    }
                 }
+                .frame(minHeight: containerHeight)
             }
-            .padding(.horizontal, 16)
-            .background(Constants.bgPrimary)
+            .background(Constants.bgPrimary) // Match the background outside the ScrollView
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
@@ -201,18 +221,14 @@ struct CaptureView: View {
         }
     }
 
+
+
+
     
     // Helper function to get the currently active field
     func getActiveField() -> EditableTemplateFieldViewData? {
         guard let activeFieldIndex = activeFieldIndex, displayFields.indices.contains(activeFieldIndex) else { return nil }
         let activeField = displayFields[activeFieldIndex]
-
-        // Print field details
-        print("⚠️ NEW FIELD ⚠️")
-        print("Name: \(activeField.name)")
-        print("Default Value: \(activeField.defaultValue ?? "No Default Value")")
-        print("Priority: \(activeField.priority)")
-        print("Kind: \(activeField.kind)")
 
         // Handling options
         if let options = activeField.options, !options.isEmpty {
@@ -223,6 +239,60 @@ struct CaptureView: View {
 
         return activeField
     }
+    
+    
+    // Helper function to fetch options for select fields
+    func fetchOptionsForSelectField(from databaseId: String) {
+        guard let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)") else {
+            print("Invalid URL for database ID: \(databaseId)")
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.addValue("2021-05-13", forHTTPHeaderField: "Notion-Version")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("Error fetching options: \(error)")
+                return
+            }
+            
+            guard let data = data else {
+                print("No data received for options")
+                return
+            }
+            
+            do {
+                if let jsonResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let properties = jsonResponse["properties"] as? [String: Any] {
+                    DispatchQueue.main.async {
+                        self.extractOptionsFromProperties(properties)
+                    }
+                }
+            } catch {
+                print("Error parsing options: \(error)")
+            }
+        }.resume()
+    }
+
+    func extractOptionsFromProperties(_ properties: [String: Any]) {
+        for (key, value) in properties {
+            if let propertyDict = value as? [String: Any],
+               let fieldType = propertyDict["type"] as? String,
+               fieldType == "select" || fieldType == "multiselect" || fieldType == "status",
+               let selectDict = propertyDict[fieldType] as? [String: Any],
+               let options = selectDict["options"] as? [[String: Any]] {
+                let optionNames = options.compactMap { $0["name"] as? String }
+                DispatchQueue.main.async {
+                    self.optionsForSelectField = options.compactMap { $0["name"] as? String }
+                }
+                print("Options for \(key): \(optionNames)")
+            }
+        }
+    }
+
 
     
     
@@ -380,14 +450,20 @@ struct CaptureView: View {
         // Logic to close the capture view
     }
 
-    private func commitTemplate(_ template: Template) {
+    func commitTemplate(_ template: Template) {
         committedTemplate = template
         activeFieldIndex = 0
         capturedText = ""
         selectedIndex = nil
         filledFields = []
-        capturedData = [:]  // Reset captured data for the new template
+        capturedData = [:] // Reset captured data for the new template
+        
+        // Call fetchOptionsForSelectField here
+        if let databaseId = template.databaseId {
+            fetchOptionsForSelectField(from: databaseId)
+        }
     }
+
 
     private func handleCommit(_ selectedTemplate: Template) {
         committedTemplate = selectedTemplate
@@ -433,11 +509,6 @@ struct CaptureView: View {
 
 }
     
-    struct CaptureView_Previews: PreviewProvider {
-        static var previews: some View {
-            CaptureView()
-        }
-    }
     
     struct Constants {
         static let bgPrimary: Color = .white
@@ -448,3 +519,10 @@ struct CaptureView: View {
         static let bgPrimaryHover: Color = Color(red: 0.95, green: 0.95, blue: 0.95)
         static let colorPrimary: Color = Color(red: 0.42, green: 0.50, blue: 1.00)
     }
+
+
+extension Array {
+    subscript(safe index: Int) -> Element? {
+        return indices.contains(index) ? self[index] : nil
+    }
+}

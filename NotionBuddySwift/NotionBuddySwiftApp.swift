@@ -7,7 +7,7 @@ struct NotionBuddyApp: App {
     @ObservedObject var sessionManager = SessionManager()
 
     init() {
-        GlobalShortcutManager.shared.setupGlobalShortcut()
+        GlobalShortcutManager.shared.setupGlobalShortcut(sessionManager: sessionManager)
         StringArrayTransformer.register()
     }
 
