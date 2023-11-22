@@ -16,7 +16,7 @@ struct CaptureView: View {
     @State private var isPlaceholderActive: Bool = true
     @State private var capturedData: [String: String] = [:]
     @State private var attemptedFinish: Bool = false
-    @State private var optionsForSelectField: [String] = []
+    @State private var optionsForFields: [String: [String]] = [:]
     
     var accessToken: String
     
@@ -115,8 +115,11 @@ struct CaptureView: View {
             )
             
             if let activeField = getActiveField(), activeField.kind == "select" {
-                SelectOptionsView(options: optionsForSelectField, maxVisibleOptions: 4)
+                if let options = optionsForFields[activeField.name] {
+                    SelectOptionsView(options: options, maxVisibleOptions: 4)
+                }
             }
+
 
 
             
@@ -242,28 +245,28 @@ struct CaptureView: View {
     
     
     // Helper function to fetch options for select fields
-    func fetchOptionsForSelectField(from databaseId: String) {
+    func fetchOptionsForFields(from databaseId: String) {
         guard let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)") else {
             print("Invalid URL for database ID: \(databaseId)")
             return
         }
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.addValue("2021-05-13", forHTTPHeaderField: "Notion-Version")
-        
-        URLSession.shared.dataTask(with: request) { data, response, error in
+
+        URLSession.shared.dataTask(with: request) { [self] data, response, error in
             if let error = error {
                 print("Error fetching options: \(error)")
                 return
             }
-            
+
             guard let data = data else {
                 print("No data received for options")
                 return
             }
-            
+
             do {
                 if let jsonResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let properties = jsonResponse["properties"] as? [String: Any] {
@@ -278,22 +281,22 @@ struct CaptureView: View {
     }
 
     func extractOptionsFromProperties(_ properties: [String: Any]) {
+        var allOptions: [String: [String]] = [:]
+
         for (key, value) in properties {
             if let propertyDict = value as? [String: Any],
                let fieldType = propertyDict["type"] as? String,
                fieldType == "select" || fieldType == "multiselect" || fieldType == "status",
                let selectDict = propertyDict[fieldType] as? [String: Any],
                let options = selectDict["options"] as? [[String: Any]] {
-                let optionNames = options.compactMap { $0["name"] as? String }
-                DispatchQueue.main.async {
-                    self.optionsForSelectField = options.compactMap { $0["name"] as? String }
-                }
-                print("Options for \(key): \(optionNames)")
+                allOptions[key] = options.compactMap { $0["name"] as? String }
             }
         }
+
+        DispatchQueue.main.async {
+            self.optionsForFields = allOptions
+        }
     }
-
-
     
     
     private func setupKeyEventHandling() {
@@ -460,7 +463,7 @@ struct CaptureView: View {
         
         // Call fetchOptionsForSelectField here
         if let databaseId = template.databaseId {
-            fetchOptionsForSelectField(from: databaseId)
+            fetchOptionsForFields(from: databaseId)
         }
     }
 
