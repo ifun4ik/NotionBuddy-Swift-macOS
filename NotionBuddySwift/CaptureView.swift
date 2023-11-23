@@ -195,14 +195,16 @@ struct CaptureView: View {
         }
         
         private var filteredOptions: [String] {
-            options.filter { $0.lowercased().contains(filterText.lowercased()) }
+            options.filter { option in
+                filterText.isEmpty || option.lowercased().contains(filterText.lowercased())
+            }
         }
         
         var body: some View {
             VStack(alignment: .leading) {
                 ScrollView {
                     LazyVStack(alignment: .leading) {
-                        ForEach(Array(options.prefix(maxVisibleOptions).enumerated()), id: \.element) { index, option in
+                        ForEach(Array(filteredOptions.prefix(maxVisibleOptions).enumerated()), id: \.element) { index, option in
                             Text(option)
                                 .font(Font.custom("Onest", size: 16).weight(.semibold))
                                 .foregroundColor(Constants.textPrimary)
@@ -215,7 +217,7 @@ struct CaptureView: View {
                         }
                     }
                 }
-                .frame(minHeight: containerHeight)
+                .frame(minHeight: CGFloat(min(filteredOptions.count, maxVisibleOptions)) * optionHeight)
             }
             .background(Constants.bgPrimary)
             .cornerRadius(8)
@@ -448,14 +450,19 @@ struct CaptureView: View {
     }
 
     private func cmdEnterPressed() {
+        // Capture data for the current field
         captureCurrentFieldData()
-        captureAllFieldData()
+
+        // Validate all fields, especially the mandatory ones
         if validateRequiredFields() {
+            // If validation passes, capture all field data and finish capture
+            captureAllFieldData()
             finishCapture()
             closeCaptureView()  // Implement this method to close the capture view
         } else {
+            // If validation fails, set attemptedFinish to true to indicate a failed attempt
             attemptedFinish = true
-            highlightUnfilledRequiredFields()
+            highlightUnfilledRequiredFields() // Highlight unfilled mandatory fields
         }
     }
 
