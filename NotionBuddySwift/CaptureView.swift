@@ -17,6 +17,7 @@ struct CaptureView: View {
     @State private var capturedData: [String: String] = [:]
     @State private var attemptedFinish: Bool = false
     @State private var optionsForFields: [String: [String]] = [:]
+    @State private var activeOptionIndex: Int = 0
     
     var accessToken: String
     
@@ -116,7 +117,7 @@ struct CaptureView: View {
             
             if let activeField = getActiveField(), activeField.kind == "select" {
                 if let options = optionsForFields[activeField.name] {
-                    SelectOptionsView(options: options, maxVisibleOptions: 4)
+                    SelectOptionsView(options: options, filterText: capturedText, maxVisibleOptions: 4, activeOptionIndex: activeOptionIndex)
                 }
             }
 
@@ -182,7 +183,9 @@ struct CaptureView: View {
     //MARK: Select view
     struct SelectOptionsView: View {
         var options: [String]
+        var filterText: String
         let maxVisibleOptions: Int
+        var activeOptionIndex: Int
         private let optionHeight: CGFloat = 44 // Adjust the height for each option as needed
         
         // Computed property to determine the height of the container
@@ -191,30 +194,30 @@ struct CaptureView: View {
             return CGFloat(count) * optionHeight
         }
         
+        private var filteredOptions: [String] {
+            options.filter { $0.lowercased().contains(filterText.lowercased()) }
+        }
+        
         var body: some View {
             VStack(alignment: .leading) {
                 ScrollView {
                     LazyVStack(alignment: .leading) {
-                        ForEach(options.prefix(maxVisibleOptions), id: \.self) { option in
-                            Group {
-                                Text(option)
-//                                    .contentShape(Rectangle()) // Make the whole row tappable
-                                    .font(Font.custom("Onest", size: 16).weight(.semibold))
-                                    .foregroundColor(Constants.textPrimary)
-                            } 
+                        ForEach(Array(options.prefix(maxVisibleOptions).enumerated()), id: \.element) { index, option in
+                            Text(option)
+                                .font(Font.custom("Onest", size: 16).weight(.semibold))
+                                .foregroundColor(Constants.textPrimary)
                                 .padding(.horizontal, 16)
                                 .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
+                                .background(index == activeOptionIndex ? Constants.bgPrimaryHover : Color.clear)
                                 .onTapGesture {
-                                    print("Option selected: \(option)")
                                     // Handle option selection
                                 }
-                                .background(Constants.bgPrimary) // Match the background here
                         }
                     }
                 }
                 .frame(minHeight: containerHeight)
             }
-            .background(Constants.bgPrimary) // Match the background outside the ScrollView
+            .background(Constants.bgPrimary)
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
@@ -315,16 +318,18 @@ struct CaptureView: View {
         if let committedTemplate = committedTemplate, let activeFieldIndex = activeFieldIndex {
             switch event.keyCode {
             case 36:  // Enter/Return key
-                // Check if the index is within the range of `displayFields`
-                if displayFields.indices.contains(activeFieldIndex) {
+                if let activeField = getActiveField(), activeField.kind == "select", let options = optionsForFields[activeField.name] {
+                    let selectedOption = options[safe: activeOptionIndex] ?? ""
+                    capturedData[activeField.name] = selectedOption
+                    moveToNextFieldOrFinish()
+                } else if displayFields.indices.contains(activeFieldIndex) {
+                    // Existing logic for non-select fields...
                     let field = displayFields[activeFieldIndex]
-                    // Directly check the field's priority
                     if field.priority == "mandatory" {
                         if capturedText.isEmpty && (field.defaultValue ?? "").isEmpty {
                             attemptedFinish = true
                             // Optionally, add logic to visually indicate the field needs attention
                         } else {
-                            // Use default value if capturedText is empty
                             capturedText = capturedText.isEmpty ? (field.defaultValue ?? "") : capturedText
                             captureCurrentFieldData()
                             moveToNextFieldOrFinish()
@@ -334,6 +339,17 @@ struct CaptureView: View {
                         moveToNextFieldOrFinish()
                     }
                 }
+            case 48:  // Tab key
+                if event.modifierFlags.contains(.shift) {
+                    switchToPreviousField()
+                } else {
+                    switchToNextField()
+                }
+
+            case 125, 126:  // Down arrow and Up arrow keys
+                if let activeField = getActiveField(), activeField.kind == "select" {
+                    handleSelectFieldArrowKeyEvent(event)
+                }
             default:
                 break
             }
@@ -342,7 +358,42 @@ struct CaptureView: View {
         }
     }
 
+    
+    private func handleSelectFieldArrowKeyEvent(_ event: NSEvent) {
+        if let activeField = getActiveField(), activeField.kind == "select" {
+            let options = optionsForFields[activeField.name] ?? []
+            switch event.keyCode {
+            case 125:  // Down arrow key
+                activeOptionIndex = min(options.count - 1, activeOptionIndex + 1)
+            case 126:  // Up arrow key
+                activeOptionIndex = max(0, activeOptionIndex - 1)
+            default:
+                break
+            }
+        }
+    }
 
+    private func switchToNextField() {
+        guard let index = activeFieldIndex, displayFields.indices.contains(index) else { return }
+
+        let currentField = displayFields[index]
+        if currentField.priority == "mandatory" && (capturedData[currentField.name]?.isEmpty ?? true) {
+            // If current field is mandatory and empty, don't move to next field
+            attemptedFinish = true
+            // Optionally, highlight the field or show a message indicating it's mandatory
+        } else {
+            activeFieldIndex = index < displayFields.count - 1 ? index + 1 : 0
+        }
+    }
+
+
+    private func switchToPreviousField() {
+        if let index = activeFieldIndex, index > 0 {
+            activeFieldIndex = index - 1
+        } else {
+            activeFieldIndex = displayFields.count - 1 // Loop to the last field
+        }
+    }
 
     private func captureCurrentFieldData() {
         guard let activeFieldIndex = activeFieldIndex, activeFieldIndex < displayFields.count else { return }
