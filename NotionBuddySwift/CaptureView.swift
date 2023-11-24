@@ -115,9 +115,9 @@ struct CaptureView: View {
                     .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
             )
             
-            if let activeField = getActiveField(), activeField.kind == "select" {
+            if let activeField = getActiveField(), ["select", "multiselect", "status"].contains(activeField.kind) {
                 if let options = optionsForFields[activeField.name] {
-                    SelectOptionsView(options: options, filterText: capturedText, maxVisibleOptions: 4, activeOptionIndex: activeOptionIndex)
+                    SelectOptionsView(options: options, filterText: capturedText, maxVisibleOptions: 4, activeOptionIndex: $activeOptionIndex)
                 }
             }
 
@@ -185,14 +185,9 @@ struct CaptureView: View {
         var options: [String]
         var filterText: String
         let maxVisibleOptions: Int
-        var activeOptionIndex: Int
-        private let optionHeight: CGFloat = 44 // Adjust the height for each option as needed
+        @Binding var activeOptionIndex: Int
         
-        // Computed property to determine the height of the container
-        private var containerHeight: CGFloat {
-            let count = min(options.count, maxVisibleOptions)
-            return CGFloat(count) * optionHeight
-        }
+        private let optionHeight: CGFloat = 44 // Adjust the height for each option as needed
         
         private var filteredOptions: [String] {
             options.filter { option in
@@ -202,18 +197,26 @@ struct CaptureView: View {
         
         var body: some View {
             VStack(alignment: .leading) {
-                ScrollView {
-                    LazyVStack(alignment: .leading) {
-                        ForEach(Array(filteredOptions.prefix(maxVisibleOptions).enumerated()), id: \.element) { index, option in
-                            Text(option)
-                                .font(Font.custom("Onest", size: 16).weight(.semibold))
-                                .foregroundColor(Constants.textPrimary)
-                                .padding(.horizontal, 16)
-                                .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
-                                .background(index == activeOptionIndex ? Constants.bgPrimaryHover : Color.clear)
-                                .onTapGesture {
-                                    // Handle option selection
-                                }
+                ScrollViewReader { scrollViewProxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading) {
+                            ForEach(Array(filteredOptions.enumerated()), id: \.element) { index, option in
+                                Text(option)
+                                    .font(Font.custom("Onest", size: 16).weight(.semibold))
+                                    .foregroundColor(Constants.textPrimary)
+                                    .padding(.horizontal, 16)
+                                    .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
+                                    .background(index == activeOptionIndex ? Constants.bgPrimaryHover : Color.clear)
+                                    .id(index) // Assign an ID to each option
+                                    .onTapGesture {
+                                        // Handle option selection
+                                    }
+                            }
+                        }
+                    }
+                    .onChange(of: activeOptionIndex) { newIndex in
+                        withAnimation {
+                            scrollViewProxy.scrollTo(newIndex, anchor: .center)
                         }
                     }
                 }
@@ -230,16 +233,15 @@ struct CaptureView: View {
     }
 
 
-
-
     
     // Helper function to get the currently active field
     func getActiveField() -> EditableTemplateFieldViewData? {
         guard let activeFieldIndex = activeFieldIndex, displayFields.indices.contains(activeFieldIndex) else { return nil }
         let activeField = displayFields[activeFieldIndex]
 
-        // Handling options
-        if let options = activeField.options, !options.isEmpty {
+        // Include "multiselect" and "status" in the check
+        if ["select", "multiselect", "status"].contains(activeField.kind),
+           let options = activeField.options, !options.isEmpty {
             print("Options: \(options.joined(separator: ", "))")
         } else {
             print("Options: No Options")
@@ -247,6 +249,7 @@ struct CaptureView: View {
 
         return activeField
     }
+
     
     
     // Helper function to fetch options for select fields
@@ -320,7 +323,7 @@ struct CaptureView: View {
         if let committedTemplate = committedTemplate, let activeFieldIndex = activeFieldIndex {
             switch event.keyCode {
             case 36:  // Enter/Return key
-                if let activeField = getActiveField(), activeField.kind == "select", let options = optionsForFields[activeField.name] {
+                if let activeField = getActiveField(), ["select", "multiselect", "status"].contains(activeField.kind), let options = optionsForFields[activeField.name] {
                     let selectedOption = options[safe: activeOptionIndex] ?? ""
                     capturedData[activeField.name] = selectedOption
                     moveToNextFieldOrFinish()
@@ -349,7 +352,7 @@ struct CaptureView: View {
                 }
 
             case 125, 126:  // Down arrow and Up arrow keys
-                if let activeField = getActiveField(), activeField.kind == "select" {
+                if let activeField = getActiveField(), ["select", "multiselect", "status"].contains(activeField.kind) {
                     handleSelectFieldArrowKeyEvent(event)
                 }
             default:
@@ -362,18 +365,18 @@ struct CaptureView: View {
 
     
     private func handleSelectFieldArrowKeyEvent(_ event: NSEvent) {
-        if let activeField = getActiveField(), activeField.kind == "select" {
-            let options = optionsForFields[activeField.name] ?? []
+        if let activeField = getActiveField(), ["select", "multiselect", "status"].contains(activeField.kind), let options = optionsForFields[activeField.name] {
             switch event.keyCode {
             case 125:  // Down arrow key
-                activeOptionIndex = min(options.count - 1, activeOptionIndex + 1)
+                activeOptionIndex = (activeOptionIndex + 1) % options.count
             case 126:  // Up arrow key
-                activeOptionIndex = max(0, activeOptionIndex - 1)
+                activeOptionIndex = (activeOptionIndex - 1 + options.count) % options.count
             default:
                 break
             }
         }
     }
+
 
     private func switchToNextField() {
         guard let index = activeFieldIndex, displayFields.indices.contains(index) else { return }
