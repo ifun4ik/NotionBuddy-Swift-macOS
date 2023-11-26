@@ -194,6 +194,8 @@ struct TemplateCreatorView: View {
     
     func createFieldViewData(from database: Database) {
         if let properties = database.properties {
+            var skipPriorityFields: [TemplateFieldViewData] = []
+
             for (name, property) in properties {
                 var options: [String] = []
 
@@ -209,18 +211,26 @@ struct TemplateCreatorView: View {
                 }
 
                 let defaultValue = options.first ?? ""
-                templateFields.append(
-                    TemplateFieldViewData(
-                        name: name,
-                        kind: property.type,
-                        defaultValue: defaultValue,
-                        order: Int16(templateFields.count),
-                        options: options.isEmpty ? nil : options
-                    )
+                let fieldViewData = TemplateFieldViewData(
+                    name: name,
+                    kind: property.type,
+                    defaultValue: defaultValue,
+                    order: Int16(templateFields.count),
+                    options: options.isEmpty ? nil : options
                 )
+
+                if fieldViewData.priority == .skip {
+                    skipPriorityFields.append(fieldViewData)
+                } else {
+                    templateFields.append(fieldViewData)
+                }
             }
+
+            // Append the .skip priority fields at the end
+            templateFields.append(contentsOf: skipPriorityFields)
         }
     }
+
 
     
     func move(from source: IndexSet, to destination: Int) {
@@ -262,14 +272,12 @@ struct TemplateCreatorView: View {
             newField.kind = fieldViewData.kind
             
             if fieldViewData.kind == "multi_select" {
-                // Convert the Set to an array and then archive
-                let multiSelectValues = Array(fieldViewData.defaultValues)
-                do {
-                    let data = try NSKeyedArchiver.archivedData(withRootObject: multiSelectValues, requiringSecureCoding: false) as NSData
-                    newField.options = data
-                } catch {
-                    print("Failed to archive multi-select options: \(error)")
+                let selectedValues = Array(fieldViewData.selectedValues)
+                if let jsonData = try? JSONEncoder().encode(selectedValues) {
+                    newField.defaultValue = String(data: jsonData, encoding: .utf8) ?? ""
                 }
+            } else {
+                newField.defaultValue = fieldViewData.defaultValue
             }
             
             if let options = fieldViewData.options {

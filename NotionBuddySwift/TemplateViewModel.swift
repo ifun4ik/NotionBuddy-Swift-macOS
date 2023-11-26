@@ -41,15 +41,16 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
             self.options = []
         }
         
-        if kind == "multi_select", let optionsData = templateField.options as? Data {
-                    do {
-                        if let selectedOptionsArray = try NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(optionsData) as? [String] {
-                            self.selectedValues = Set(selectedOptionsArray)
-                        }
-                    } catch {
-                        print("Error unarchiving multi-select options data: \(error)")
-                    }
+        if kind == "multi_select", let defaultValue = templateField.defaultValue {
+            if let jsonData = defaultValue.data(using: .utf8) {
+                do {
+                    let decodedValues = try JSONDecoder().decode([String].self, from: jsonData)
+                    self.selectedValues = Set(decodedValues)
+                } catch {
+                    print("Failed to decode selected multi_select values: \(error)")
                 }
+            }
+        }
         
     }
 
