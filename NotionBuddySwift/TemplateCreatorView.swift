@@ -16,7 +16,9 @@ class TemplateFieldViewData: ObservableObject, Identifiable {
     let kind: String
     @Published var priority: FieldPriority = .optional
     @Published var defaultValue: String
+    @Published var defaultValues: Set<String> = []
     @Published var order: Int16
+    @Published var selectedValues: Set<String> = [] 
     var options: [String]? = nil
     
     init(
@@ -45,6 +47,8 @@ class TemplateFieldViewData: ObservableObject, Identifiable {
 
 struct FieldRow: View {
     @ObservedObject var field: TemplateFieldViewData
+    @State private var showMultiSelect = false
+
     var body: some View {
         HStack{
             Image(systemName: "line.horizontal.3")
@@ -96,13 +100,26 @@ struct FieldRow: View {
                     TextField("Default Value", text: $field.defaultValue)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .disabled(field.priority == .skip)
-                case "multi_select", "select", "status":
+                case "select", "status":
                     Picker("Default Value", selection: $field.defaultValue) {
                         ForEach(field.options ?? [], id: \.self) { option in
                             Text(option).tag(option)
                         }
                     }
                     .disabled(field.priority == .skip)
+                    
+                case "multi_select":
+                    Button(action: { showMultiSelect.toggle() }) {
+                        HStack {
+                            Text("Select Options: \(field.selectedValues.joined(separator: ", "))")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                    }
+                    .sheet(isPresented: $showMultiSelect) {
+                        MultiSelectView(options: field.options ?? [], selectedOptions: $field.selectedValues)
+                    }
+                    
                 default:
                     TextField("Default Value", text: .constant(""))
                         .disabled(true)
@@ -178,46 +195,33 @@ struct TemplateCreatorView: View {
     func createFieldViewData(from database: Database) {
         if let properties = database.properties {
             for (name, property) in properties {
-                if let selectOptions = property.select?.options {
-                    let options = selectOptions.map { $0.name }
-                    let defaultValue = options.first ?? ""
-                    templateFields.append(
-                        TemplateFieldViewData(
-                            name: name,
-                            kind: property.type,
-                            defaultValue: defaultValue,
-                            order: Int16(templateFields.count),
-                            options: options
-                        )
-                    )
+                var options: [String] = []
+
+                switch property.type {
+                case "select":
+                    options = property.select?.options.map { $0.name } ?? []
+                case "multi_select":
+                    options = property.multi_select?.options.map { $0.name } ?? []
+                case "status":
+                    options = property.status?.options.map { $0.name } ?? []
+                default:
+                    break
                 }
-                else if let statusOptions = property.status?.options {
-                    let options = statusOptions.map { $0.name }
-                    let defaultValue = options.first ?? ""
-                    templateFields.append(
-                        TemplateFieldViewData(
-                            name: name,
-                            kind: property.type,
-                            defaultValue: defaultValue,
-                            order: Int16(templateFields.count),
-                            options: options
-                        )
+
+                let defaultValue = options.first ?? ""
+                templateFields.append(
+                    TemplateFieldViewData(
+                        name: name,
+                        kind: property.type,
+                        defaultValue: defaultValue,
+                        order: Int16(templateFields.count),
+                        options: options.isEmpty ? nil : options
                     )
-                }
-                else {
-                    let defaultValue = ""
-                    templateFields.append(
-                        TemplateFieldViewData(
-                            name: name,
-                            kind: property.type,
-                            defaultValue: defaultValue,
-                            order: Int16(templateFields.count)
-                        )
-                    )
-                }
+                )
             }
         }
     }
+
     
     func move(from source: IndexSet, to destination: Int) {
         templateFields.move(fromOffsets: source, toOffset: destination)
@@ -256,6 +260,18 @@ struct TemplateCreatorView: View {
             newField.order = fieldViewData.order
             newField.priority = fieldViewData.priority.rawValue
             newField.kind = fieldViewData.kind
+            
+            if fieldViewData.kind == "multi_select" {
+                // Convert the Set to an array and then archive
+                let multiSelectValues = Array(fieldViewData.defaultValues)
+                do {
+                    let data = try NSKeyedArchiver.archivedData(withRootObject: multiSelectValues, requiringSecureCoding: false) as NSData
+                    newField.options = data
+                } catch {
+                    print("Failed to archive multi-select options: \(error)")
+                }
+            }
+            
             if let options = fieldViewData.options {
                 do {
                     let data = try NSKeyedArchiver.archivedData(withRootObject: options, requiringSecureCoding: false) as NSData
@@ -327,5 +343,31 @@ struct TemplateCreatorView: View {
             }
         }
         return true
+    }
+}
+
+
+struct MultiSelectView: View {
+    let options: [String]
+    @Binding var selectedOptions: Set<String>
+
+    var body: some View {
+        List(options, id: \.self) { option in
+            HStack {
+                Text(option)
+                Spacer()
+                if selectedOptions.contains(option) {
+                    Image(systemName: "checkmark")
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if selectedOptions.contains(option) {
+                    selectedOptions.remove(option)
+                } else {
+                    selectedOptions.insert(option)
+                }
+            }
+        }
     }
 }

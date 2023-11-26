@@ -10,6 +10,8 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
     @Published var defaultValue: String
     @Published var order: Int16
     @Published var options: [String]? = nil
+    @Published var selectedValues: Set<String> = []
+
 
     init(templateField: TemplateField) {
         self.kind = templateField.kind ?? ""
@@ -27,7 +29,6 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
                 // Attempt to unarchive the data
                 if let optionsArray = try NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(optionsData) as? [String] {
                     self.options = optionsArray
-                    print("Transformed options: \(optionsArray)")
                 } else {
                     print("Failed to unarchive options data")
                     self.options = []
@@ -37,9 +38,19 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
                 self.options = []
             }
         } else {
-            print("Options attribute is not Data type or is nil")
             self.options = []
         }
+        
+        if kind == "multi_select", let optionsData = templateField.options as? Data {
+                    do {
+                        if let selectedOptionsArray = try NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(optionsData) as? [String] {
+                            self.selectedValues = Set(selectedOptionsArray)
+                        }
+                    } catch {
+                        print("Error unarchiving multi-select options data: \(error)")
+                    }
+                }
+        
     }
 
         // Check for field options conflicts

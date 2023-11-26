@@ -55,7 +55,7 @@ struct Database: Identifiable, Decodable {
         let type: String
         let name: String
         let select: SelectOptions?
-        let multiSelect: MultiSelectOptions?
+        let multi_select: MultiSelectOptions?
         let people: People?
         let checkbox: Checkbox?
         let number: Number?
@@ -108,7 +108,7 @@ struct Database: Identifiable, Decodable {
 
         struct MultiSelectOptions: Decodable {
             let options: [Option]
-
+            
             struct Option: Decodable {
                 let id: String
                 let name: String
@@ -295,8 +295,16 @@ struct DatabaseNavigatorView: View {
                         print("Option Color: \(option.color)")
                     }
                 }
-                
-                // Add this check
+
+                if let multi_select = property.multi_select {
+                    print("MultiSelect Options:")
+                    for option in multi_select.options {
+                        print("Option Name: \(option.name)")
+                        print("Option ID: \(option.id)")
+                        print("Option Color: \(option.color)")
+                    }
+                }
+
                 if let status = property.status {
                     print("Status Options:")
                     for option in status.options {
@@ -309,12 +317,13 @@ struct DatabaseNavigatorView: View {
                         print("Group Name: \(group.name)")
                         print("Group ID: \(group.id)")
                         print("Group Color: \(group.color)")
-                        print("Group Option IDs: \(group.option_ids)")
+                        print("Group Option IDs: \(group.option_ids.joined(separator: ", "))")
                     }
                 }
             }
         }
     }
+
 
 }
 

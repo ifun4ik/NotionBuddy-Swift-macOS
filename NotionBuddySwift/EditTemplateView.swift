@@ -266,10 +266,19 @@ struct EditTemplateView: View {
             let newField = TemplateField(context: managedObjectContext)
             newField.id = fieldViewData.id
             newField.name = fieldViewData.name
-            newField.defaultValue = fieldViewData.defaultValue
             newField.order = Int16(index)
             newField.kind = fieldViewData.kind
             newField.priority = fieldViewData.priority
+
+            // Handle multi-select fields by storing selected values as a JSON string
+            if fieldViewData.kind == "multi_select" {
+                if let jsonData = try? JSONEncoder().encode(fieldViewData.selectedValues) {
+                    newField.defaultValue = String(data: jsonData, encoding: .utf8) ?? ""
+                }
+            } else {
+                newField.defaultValue = fieldViewData.defaultValue
+            }
+
             viewModel.template.addToFields(newField)
         }
 
@@ -280,6 +289,7 @@ struct EditTemplateView: View {
             print("Failed to update template: \(error)")
         }
     }
+
 
     func canSave() -> Bool {
         if viewModel.templateName.isEmpty || !allMandatoryFieldsHaveDefaultValue() {
@@ -339,29 +349,43 @@ struct EditTemplateView: View {
     
     func fetchOptions(fetchedData: [String: Any]) {
         for (key, fetchedValue) in fetchedData {
-            if let templateField = viewModel.templateFields.first(where: {
-                  $0.name == key && ($0.kind == "select" || $0.kind == "multiselect" || $0.kind == "status")
-                }) {
+            if let templateField = viewModel.templateFields.first(where: { $0.name == key }) {
                 if let fetchedDict = fetchedValue as? [String: Any] {
-                    if let selectDict = fetchedDict["select"] as? [String: Any],
+                    // Handle select fields
+                    if templateField.kind == "select", let selectDict = fetchedDict["select"] as? [String: Any],
                        let options = selectDict["options"] as? [[String: Any]] {
-                        let optionNames = options.compactMap({ $0["name"] as? String })
-                        templateField.options = optionNames
-
-                        // Ensure the default value exists in options
-                        if !optionNames.contains(templateField.defaultValue) {
+                        let optionNames = options.compactMap { $0["name"] as? String }
+                        DispatchQueue.main.async {
+                            templateField.options = optionNames
                             templateField.defaultValue = optionNames.first ?? ""
                         }
-                    } else {
-                        print("No options found in fetched dict")
+                    }
+
+                    // Handle multi_select fields
+                    if templateField.kind == "multi_select", let multiSelectDict = fetchedDict["multi_select"] as? [String: Any],
+                       let options = multiSelectDict["options"] as? [[String: Any]] {
+                        let optionNames = options.compactMap { $0["name"] as? String }
+                        DispatchQueue.main.async {
+                            templateField.options = optionNames
+                        }
+                    }
+
+                    // Handle status fields
+                    if templateField.kind == "status", let statusDict = fetchedDict["status"] as? [String: Any],
+                       let options = statusDict["options"] as? [[String: Any]] {
+                        let optionNames = options.compactMap { $0["name"] as? String }
+                        DispatchQueue.main.async {
+                            templateField.options = optionNames
+                            templateField.defaultValue = optionNames.first ?? ""
+                        }
                     }
                 } else {
-                    print("Fetched value is not a dictionary")
+                    print("Fetched value is not a dictionary for key \(key)")
                 }
-                fetchedProps[key] = templateField.options
             }
         }
     }
+
     
     func backgroundForIndex(index: Int) -> Color {
         return index % 2 == 0 ? Color(NSColor.windowBackgroundColor) : Color(NSColor.controlBackgroundColor)
@@ -385,6 +409,7 @@ struct EditTemplateView: View {
 struct EditFieldRow: View {
     @ObservedObject var field: EditableTemplateFieldViewData
     @State var json: [String: Any]
+    @State private var showMultiSelect = false
 
     var body: some View {
         HStack {
@@ -436,7 +461,7 @@ struct EditFieldRow: View {
                     TextField("Default Value", text: $field.defaultValue)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .disabled(field.priority == FieldPriority.skip.rawValue)
-                case "multi_select", "select", "status":
+                case "select", "status":
                     if let jsonOptions = json[field.name] as? [String: Any], let options = jsonOptions["options"] as? [[String: Any]] {
                         let optionNames = options.compactMap { $0["name"] as? String }
                         ForEach(optionNames, id: \.self) { option in
@@ -455,6 +480,17 @@ struct EditFieldRow: View {
                             }
                         }
                         .disabled(field.priority == FieldPriority.skip.rawValue)
+                    }
+                case "multi_select":
+                    Button(action: { showMultiSelect.toggle() }) {
+                        HStack {
+                            Text("Select Options: \(field.selectedValues.joined(separator: ", "))")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                    }
+                    .sheet(isPresented: $showMultiSelect) {
+                        MultiSelectView(options: field.options ?? [], selectedOptions: $field.selectedValues)
                     }
                 default:
                     TextField("Default Value", text: $field.defaultValue)
