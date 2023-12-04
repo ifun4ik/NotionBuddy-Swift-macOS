@@ -18,6 +18,9 @@ struct CaptureView: View {
     @State private var attemptedFinish: Bool = false
     @State private var optionsForFields: [String: [String]] = [:]
     @State private var activeOptionIndex: Int = 0
+    @State private var selectedMultiOptions: [String] = []
+    @State private var multiSelectFilterText: String = ""
+
     
     var accessToken: String
     
@@ -38,10 +41,26 @@ struct CaptureView: View {
     
     private var textFieldPlaceholder: String {
         if isPlaceholderActive, let index = activeFieldIndex, index < displayFields.count {
-            return displayFields[index].defaultValue
+            let field = displayFields[index]
+            if field.kind == "multi_select" {
+                if let defaultValue = field.defaultValue as? String {
+                    let parsedArray = parseArrayString(defaultValue)
+                    return parsedArray.isEmpty ? "Type something..." : parsedArray.joined(separator: ", ")
+                }
+            }
+            return field.defaultValue as? String ?? "Type something..."
         }
         return "Type something..."
     }
+
+    private func parseArrayString(_ arrayString: String) -> [String] {
+        // Remove brackets and split by comma
+        let trimmedString = arrayString.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        let elements = trimmedString.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        // Further trimming to remove quotes if needed
+        return elements.map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
+    }
+
     
     
     var body: some View {
@@ -100,6 +119,10 @@ struct CaptureView: View {
                                 isPlaceholderActive = false
                             }
                         }
+                        if let activeField = getActiveField(), activeField.kind == "multi_select" {
+                            // Update the filter text for multi_select, excluding the last typed word
+                            multiSelectFilterText = newValue.components(separatedBy: ", ").last ?? ""
+                        }
                     }
                     .onAppear {
                         capturedData = [:]
@@ -115,11 +138,20 @@ struct CaptureView: View {
                     .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
             )
             
-            if let activeField = getActiveField(), ["select", "multiselect", "status"].contains(activeField.kind) {
+            if let activeField = getActiveField(), ["select", "multi_select", "status"].contains(activeField.kind) {
                 if let options = optionsForFields[activeField.name] {
-                    SelectOptionsView(options: options, filterText: capturedText, maxVisibleOptions: 4, activeOptionIndex: $activeOptionIndex)
+                    SelectOptionsView(
+                        options: options,
+                        filterText: $multiSelectFilterText, // Use the new filter text
+                        maxVisibleOptions: 4,
+                        activeOptionIndex: $activeOptionIndex,
+                        selectedOptions: $selectedMultiOptions
+                    )
                 }
             }
+
+
+
 
 
 
@@ -183,34 +215,41 @@ struct CaptureView: View {
     //MARK: Select view
     struct SelectOptionsView: View {
         var options: [String]
-        var filterText: String
+        @Binding var filterText: String
         let maxVisibleOptions: Int
         @Binding var activeOptionIndex: Int
-        
-        private let optionHeight: CGFloat = 44 // Adjust the height for each option as needed
-        
+        @Binding var selectedOptions: [String]
+
         private var filteredOptions: [String] {
             options.filter { option in
                 filterText.isEmpty || option.lowercased().contains(filterText.lowercased())
             }
         }
-        
+
+        private let optionHeight: CGFloat = 44
+
         var body: some View {
             VStack(alignment: .leading) {
                 ScrollViewReader { scrollViewProxy in
                     ScrollView {
                         LazyVStack(alignment: .leading) {
                             ForEach(Array(filteredOptions.enumerated()), id: \.element) { index, option in
-                                Text(option)
-                                    .font(Font.custom("Onest", size: 16).weight(.semibold))
-                                    .foregroundColor(Constants.textPrimary)
-                                    .padding(.horizontal, 16)
-                                    .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
-                                    .background(index == activeOptionIndex ? Constants.bgPrimaryHover : Color.clear)
-                                    .id(index) // Assign an ID to each option
-                                    .onTapGesture {
-                                        // Handle option selection
+                                HStack {
+                                    if selectedOptions.contains(option) {
+                                        Image(systemName: "checkmark")
+                                            .foregroundColor(Constants.colorPrimary)
                                     }
+                                    Text(option)
+                                        .font(Font.custom("Onest", size: 16).weight(.semibold))
+                                        .foregroundColor(Constants.textPrimary)
+                                        .padding(.horizontal, 16)
+                                        .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
+                                        .background(index == activeOptionIndex ? Constants.bgPrimaryHover : Color.clear)
+                                        .id(index)
+                                }
+                                .onTapGesture {
+                                    toggleOptionSelection(option)
+                                }
                             }
                         }
                     }
@@ -230,6 +269,14 @@ struct CaptureView: View {
                     .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
             )
         }
+
+        private func toggleOptionSelection(_ option: String) {
+            if selectedOptions.contains(option) {
+                selectedOptions.removeAll(where: { $0 == option })
+            } else {
+                selectedOptions.append(option)
+            }
+        }
     }
 
 
@@ -239,12 +286,9 @@ struct CaptureView: View {
         guard let activeFieldIndex = activeFieldIndex, displayFields.indices.contains(activeFieldIndex) else { return nil }
         let activeField = displayFields[activeFieldIndex]
 
-        // Include "multiselect" and "status" in the check
-        if ["select", "multiselect", "status"].contains(activeField.kind),
+        // Include "multi_select" and "status" in the check
+        if ["select", "multi_select", "status"].contains(activeField.kind),
            let options = activeField.options, !options.isEmpty {
-            print("Options: \(options.joined(separator: ", "))")
-        } else {
-            print("Options: No Options")
         }
 
         return activeField
@@ -294,7 +338,7 @@ struct CaptureView: View {
         for (key, value) in properties {
             if let propertyDict = value as? [String: Any],
                let fieldType = propertyDict["type"] as? String,
-               fieldType == "select" || fieldType == "multiselect" || fieldType == "status",
+               fieldType == "select" || fieldType == "multi_select" || fieldType == "status",
                let selectDict = propertyDict[fieldType] as? [String: Any],
                let options = selectDict["options"] as? [[String: Any]] {
                 allOptions[key] = options.compactMap { $0["name"] as? String }
@@ -323,36 +367,26 @@ struct CaptureView: View {
         if let committedTemplate = committedTemplate, let activeFieldIndex = activeFieldIndex {
             switch event.keyCode {
             case 36:  // Enter/Return key
-                if let activeField = getActiveField(), ["select", "multiselect", "status"].contains(activeField.kind), let options = optionsForFields[activeField.name] {
-                    let selectedOption = options[safe: activeOptionIndex] ?? ""
+                if let activeField = getActiveField(), activeField.kind == "multi_select" {
+                    let selectedOption = optionsForFields[activeField.name]?[safe: activeOptionIndex] ?? ""
+                    toggleMultiSelectOption(selectedOption)
+                } else if let activeField = getActiveField(), ["select", "status"].contains(activeField.kind) {
+                    let selectedOption = optionsForFields[activeField.name]?[safe: activeOptionIndex] ?? ""
                     capturedData[activeField.name] = selectedOption
                     moveToNextFieldOrFinish()
-                } else if displayFields.indices.contains(activeFieldIndex) {
-                    // Existing logic for non-select fields...
-                    let field = displayFields[activeFieldIndex]
-                    if field.priority == "mandatory" {
-                        if capturedText.isEmpty && (field.defaultValue ?? "").isEmpty {
-                            attemptedFinish = true
-                            // Optionally, add logic to visually indicate the field needs attention
-                        } else {
-                            capturedText = capturedText.isEmpty ? (field.defaultValue ?? "") : capturedText
-                            captureCurrentFieldData()
-                            moveToNextFieldOrFinish()
-                        }
-                    } else {
-                        captureCurrentFieldData()
-                        moveToNextFieldOrFinish()
-                    }
                 }
             case 48:  // Tab key
                 if event.modifierFlags.contains(.shift) {
                     switchToPreviousField()
                 } else {
+                    if let activeField = getActiveField(), activeField.kind == "multi_select" {
+                        capturedData[activeField.name] = selectedMultiOptions.joined(separator: ",")
+                        selectedMultiOptions = []
+                    }
                     switchToNextField()
                 }
-
             case 125, 126:  // Down arrow and Up arrow keys
-                if let activeField = getActiveField(), ["select", "multiselect", "status"].contains(activeField.kind) {
+                if let activeField = getActiveField(), ["select", "multi_select", "status"].contains(activeField.kind) {
                     handleSelectFieldArrowKeyEvent(event)
                 }
             default:
@@ -363,9 +397,21 @@ struct CaptureView: View {
         }
     }
 
-    
+    private func toggleMultiSelectOption(_ option: String) {
+        if selectedMultiOptions.contains(option) {
+            selectedMultiOptions.removeAll { $0 == option }
+        } else {
+            selectedMultiOptions.append(option)
+        }
+        updateCapturedTextForMultiSelect()
+    }
+
+    private func updateCapturedTextForMultiSelect() {
+        capturedText = selectedMultiOptions.joined(separator: ", ") + ", "
+    }
+
     private func handleSelectFieldArrowKeyEvent(_ event: NSEvent) {
-        if let activeField = getActiveField(), ["select", "multiselect", "status"].contains(activeField.kind), let options = optionsForFields[activeField.name] {
+        if let activeField = getActiveField(), ["select", "multi_select", "status"].contains(activeField.kind), let options = optionsForFields[activeField.name] {
             switch event.keyCode {
             case 125:  // Down arrow key
                 activeOptionIndex = (activeOptionIndex + 1) % options.count
@@ -403,14 +449,20 @@ struct CaptureView: View {
     private func captureCurrentFieldData() {
         guard let activeFieldIndex = activeFieldIndex, activeFieldIndex < displayFields.count else { return }
         let field = displayFields[activeFieldIndex]
-        let fieldData = capturedText.isEmpty ? (field.defaultValue ?? "") : capturedText
 
-        // Only capture data if it's not a mandatory field with an empty value
-        if field.priority != "mandatory" || !fieldData.isEmpty {
-            capturedData[field.name] = fieldData
-            filledFields.insert(activeFieldIndex)
+        if field.kind == "multi_select", let options = field.options {
+            // For 'multi_select', always use the array of options
+            capturedData[field.name] = options.joined(separator: ",")
+        } else {
+            // For other field types, use the entered text or default value
+            let fieldData = capturedText.isEmpty ? (field.defaultValue ?? "") : capturedText
+            if field.priority != "mandatory" || !fieldData.isEmpty {
+                capturedData[field.name] = fieldData
+            }
         }
+        filledFields.insert(activeFieldIndex)
     }
+
 
     private func moveToNextFieldOrFinish() {
         // Check if activeFieldIndex is valid before proceeding
