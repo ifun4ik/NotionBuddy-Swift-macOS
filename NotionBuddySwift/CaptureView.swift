@@ -120,7 +120,13 @@ struct CaptureView: View {
                             }
                         }
                         if let activeField = getActiveField(), activeField.kind == "multi_select" {
-                            // Update the filter text for multi_select, excluding the last typed word
+                            // Split the new value into components
+                            let inputOptions = newValue.components(separatedBy: ", ").filter { !$0.isEmpty }
+
+                            // Update the selected options to match the input field
+                            selectedMultiOptions = selectedMultiOptions.filter { inputOptions.contains($0) }
+
+                            // Update the filter text for multi_select
                             multiSelectFilterText = newValue.components(separatedBy: ", ").last ?? ""
                         }
                     }
@@ -407,8 +413,13 @@ struct CaptureView: View {
     }
 
     private func updateCapturedTextForMultiSelect() {
-        capturedText = selectedMultiOptions.joined(separator: ", ") + ", "
+        if selectedMultiOptions.isEmpty {
+            capturedText = ""
+        } else {
+            capturedText = selectedMultiOptions.joined(separator: ", ") + ", "
+        }
     }
+
 
     private func handleSelectFieldArrowKeyEvent(_ event: NSEvent) {
         if let activeField = getActiveField(), ["select", "multi_select", "status"].contains(activeField.kind), let options = optionsForFields[activeField.name] {
