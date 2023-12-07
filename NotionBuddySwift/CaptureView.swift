@@ -40,18 +40,27 @@ struct CaptureView: View {
     }
     
     private var textFieldPlaceholder: String {
-        if isPlaceholderActive, let index = activeFieldIndex, index < displayFields.count {
-            let field = displayFields[index]
-            if field.kind == "multi_select" {
-                if let defaultValue = field.defaultValue as? String {
-                    let parsedArray = parseArrayString(defaultValue)
-                    return parsedArray.isEmpty ? "Type something..." : parsedArray.joined(separator: ", ")
-                }
-            }
-            return field.defaultValue as? String ?? "Type something..."
+        guard let index = activeFieldIndex, index < displayFields.count else {
+            return "Type something..."
         }
-        return "Type something..."
+        
+        let field = displayFields[index]
+
+        // If the field is filled, return its value instead of the default placeholder
+        if filledFields.contains(index), let filledValue = capturedData[field.name], !filledValue.isEmpty {
+            return filledValue
+        }
+
+        // Default placeholder logic
+        if field.kind == "multi_select" {
+            if let defaultValue = field.defaultValue as? String {
+                let parsedArray = parseArrayString(defaultValue)
+                return parsedArray.isEmpty ? "Type something..." : parsedArray.joined(separator: ", ")
+            }
+        }
+        return field.defaultValue as? String ?? "Type something..."
     }
+
 
     private func parseArrayString(_ arrayString: String) -> [String] {
         // Remove brackets and split by comma
@@ -113,23 +122,9 @@ struct CaptureView: View {
                         }
                     }
                     .onChange(of: capturedText) { newValue in
-                        if activeFieldIndex == 0 && !filledFields.contains(0) {
-                            if newValue != textFieldPlaceholder && isPlaceholderActive {
-                                capturedText = newValue
-                                isPlaceholderActive = false
-                            }
-                        }
-                        if let activeField = getActiveField(), activeField.kind == "multi_select" {
-                            // Split the new value into components
-                            let inputOptions = newValue.components(separatedBy: ", ").filter { !$0.isEmpty }
-
-                            // Update the selected options to match the input field
-                            selectedMultiOptions = selectedMultiOptions.filter { inputOptions.contains($0) }
-
-                            // Update the filter text for multi_select
-                            multiSelectFilterText = newValue.components(separatedBy: ", ").last ?? ""
-                        }
+                        handleCapturedTextChange(newValue)
                     }
+
                     .onAppear {
                         capturedData = [:]
                         setupKeyEventHandling()
@@ -148,18 +143,26 @@ struct CaptureView: View {
                 if let options = optionsForFields[activeField.name] {
                     SelectOptionsView(
                         options: options,
-                        filterText: $multiSelectFilterText, // Use the new filter text
+                        onOptionSelected: { selectedOptions in  // Handle an array of selected options
+                            if activeField.kind == "multi_select" {
+                                // For multi-select, join the selected options
+                                capturedData[activeField.name] = selectedOptions.joined(separator: ",")
+                            } else if let selectedOption = selectedOptions.first {
+                                // For single select, take the first (and only) selection
+                                capturedData[activeField.name] = selectedOption
+                            } else {
+                                // Handle the case where no option is selected (if needed)
+                                capturedData[activeField.name] = "" // Or any default value
+                            }
+                        },
+                        filterText: $multiSelectFilterText,
                         maxVisibleOptions: 4,
                         activeOptionIndex: $activeOptionIndex,
-                        selectedOptions: $selectedMultiOptions
+                        selectedOptions: $selectedMultiOptions,
+                        isMultiSelect: activeField.kind == "multi_select"
                     )
                 }
             }
-
-
-
-
-
 
             
             VStack(spacing: 0) {
@@ -221,10 +224,12 @@ struct CaptureView: View {
     //MARK: Select view
     struct SelectOptionsView: View {
         var options: [String]
+        let onOptionSelected: ([String]) -> Void // Change to pass an array of strings
         @Binding var filterText: String
         let maxVisibleOptions: Int
         @Binding var activeOptionIndex: Int
         @Binding var selectedOptions: [String]
+        let isMultiSelect: Bool
 
         private var filteredOptions: [String] {
             options.filter { option in
@@ -241,18 +246,23 @@ struct CaptureView: View {
                         LazyVStack(alignment: .leading) {
                             ForEach(Array(filteredOptions.enumerated()), id: \.element) { index, option in
                                 HStack {
-                                    if selectedOptions.contains(option) {
-                                        Image(systemName: "checkmark")
-                                            .foregroundColor(Constants.colorPrimary)
+                                    if isMultiSelect {
+                                        if selectedOptions.contains(option) {
+                                            Image(systemName: "checkmark.square.fill")
+                                                .foregroundColor(Constants.colorPrimary)
+                                        } else {
+                                            Image(systemName: "square")
+                                                .foregroundColor(Constants.textSecondary)
+                                        }
                                     }
                                     Text(option)
                                         .font(Font.custom("Onest", size: 16).weight(.semibold))
                                         .foregroundColor(Constants.textPrimary)
-                                        .padding(.horizontal, 16)
-                                        .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
-                                        .background(index == activeOptionIndex ? Constants.bgPrimaryHover : Color.clear)
                                         .id(index)
                                 }
+                                .padding(.horizontal, 16)
+                                .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
+                                .background(index == activeOptionIndex ? Constants.bgPrimaryHover : Color.clear)
                                 .onTapGesture {
                                     toggleOptionSelection(option)
                                 }
@@ -277,12 +287,19 @@ struct CaptureView: View {
         }
 
         private func toggleOptionSelection(_ option: String) {
-            if selectedOptions.contains(option) {
-                selectedOptions.removeAll(where: { $0 == option })
-            } else {
-                selectedOptions.append(option)
-            }
-        }
+           if isMultiSelect {
+               if selectedOptions.contains(option) {
+                   selectedOptions.removeAll(where: { $0 == option })
+               } else {
+                   selectedOptions.append(option)
+               }
+               onOptionSelected(selectedOptions) // For multi-select, pass the entire array
+           } else {
+               // For single select, clear the existing selection and add the new one
+               selectedOptions = [option]
+               onOptionSelected([option]) // Pass an array with the single selected item
+           }
+       }
     }
 
 
@@ -373,51 +390,99 @@ struct CaptureView: View {
         if let committedTemplate = committedTemplate, let activeFieldIndex = activeFieldIndex {
             switch event.keyCode {
             case 36:  // Enter/Return key
+                captureCurrentFieldData()
+
                 if let activeField = getActiveField(), activeField.kind == "multi_select" {
                     let selectedOption = optionsForFields[activeField.name]?[safe: activeOptionIndex] ?? ""
                     toggleMultiSelectOption(selectedOption)
-                } else if let activeField = getActiveField(), ["select", "status"].contains(activeField.kind) {
-                    let selectedOption = optionsForFields[activeField.name]?[safe: activeOptionIndex] ?? ""
-                    capturedData[activeField.name] = selectedOption
+                } else {
                     moveToNextFieldOrFinish()
                 }
             case 48:  // Tab key
                 if event.modifierFlags.contains(.shift) {
                     switchToPreviousField()
                 } else {
-                    if let activeField = getActiveField(), activeField.kind == "multi_select" {
-                        capturedData[activeField.name] = selectedMultiOptions.joined(separator: ",")
-                        selectedMultiOptions = []
-                    }
                     switchToNextField()
                 }
-            case 125, 126:  // Down arrow and Up arrow keys
-                if let activeField = getActiveField(), ["select", "multi_select", "status"].contains(activeField.kind) {
-                    handleSelectFieldArrowKeyEvent(event)
-                }
             default:
-                break
+                if let activeField = getActiveField() {
+                    handleArrowKeyEvents(event, for: activeField)
+                }
             }
         } else {
             handleTemplateSelection(event: event)
         }
     }
 
+
+    private func handleArrowKeyEvents(_ event: NSEvent, for activeField: EditableTemplateFieldViewData) {
+        switch activeField.kind {
+        case "select":
+            handleSelectFieldKeyEvent(keyCode: event.keyCode, for: activeField)
+        case "multi_select":
+            handleMultiSelectFieldKeyEvent(keyCode: event.keyCode)
+        default:
+            break
+        }
+    }
+
+    
+    private func handleSelectFieldKeyEvent(keyCode: UInt16, for activeField: EditableTemplateFieldViewData) {
+        guard let options = optionsForFields[activeField.name] else { return }
+
+        switch keyCode {
+        case 125:  // Down arrow key
+            activeOptionIndex = (activeOptionIndex + 1) % options.count
+        case 126:  // Up arrow key
+            activeOptionIndex = (activeOptionIndex - 1 + options.count) % options.count
+        default:
+            break
+        }
+
+        // Update captured data immediately as the user navigates through options
+        capturedData[activeField.name] = options[activeOptionIndex]
+    }
+    
+    private func handleMultiSelectFieldKeyEvent(keyCode: UInt16) {
+        guard let activeField = getActiveField(), let options = optionsForFields[activeField.name] else { return }
+        let currentOption = options[safe: activeOptionIndex] ?? ""
+        switch keyCode {
+        case 125:  // Down arrow key
+            activeOptionIndex = (activeOptionIndex + 1) % options.count
+        case 126:  // Up arrow key
+            activeOptionIndex = (activeOptionIndex - 1 + options.count) % options.count
+        case 36:  // Enter/Return key
+            toggleMultiSelectOption(currentOption)
+        default:
+            break
+        }
+    }
+
     private func toggleMultiSelectOption(_ option: String) {
-        if selectedMultiOptions.contains(option) {
-            selectedMultiOptions.removeAll { $0 == option }
+        if let index = selectedMultiOptions.firstIndex(of: option) {
+            selectedMultiOptions.remove(at: index)
         } else {
             selectedMultiOptions.append(option)
         }
         updateCapturedTextForMultiSelect()
     }
 
-    private func updateCapturedTextForMultiSelect() {
-        if selectedMultiOptions.isEmpty {
-            capturedText = ""
-        } else {
-            capturedText = selectedMultiOptions.joined(separator: ", ") + ", "
+
+    private func updateCapturedDataForField() {
+        guard let activeField = getActiveField() else { return }
+
+        switch activeField.kind {
+        case "multi_select":
+            capturedData[activeField.name] = selectedMultiOptions.joined(separator: ",")
+        case "select":
+            capturedData[activeField.name] = capturedText
+        default:
+            capturedData[activeField.name] = capturedText.isEmpty ? (activeField.defaultValue ?? "") : capturedText
         }
+    }
+
+    private func updateCapturedTextForMultiSelect() {
+        capturedText = selectedMultiOptions.joined(separator: ", ")
     }
 
 
@@ -442,37 +507,77 @@ struct CaptureView: View {
         if currentField.priority == "mandatory" && (capturedData[currentField.name]?.isEmpty ?? true) {
             // If current field is mandatory and empty, don't move to next field
             attemptedFinish = true
-            // Optionally, highlight the field or show a message indicating it's mandatory
         } else {
             activeFieldIndex = index < displayFields.count - 1 ? index + 1 : 0
+            updatePlaceholder()  // Call a function to update the placeholder
+        }
+        
+        updateMultiSelectOnFieldChange(newIndex: index + 1)
+    }
+    
+    private func updatePlaceholder() {
+        if let index = activeFieldIndex, index < displayFields.count {
+            let field = displayFields[index]
+            if field.kind == "multi_select" {
+                if let defaultValue = field.defaultValue as? String {
+                    let parsedArray = parseArrayString(defaultValue)
+                    capturedText = parsedArray.isEmpty ? "" : parsedArray.joined(separator: ", ")
+                }
+            } else {
+                capturedText = field.defaultValue as? String ?? ""
+            }
+            isPlaceholderActive = true  // Reset the placeholder active status
         }
     }
+
 
 
     private func switchToPreviousField() {
-        if let index = activeFieldIndex, index > 0 {
-            activeFieldIndex = index - 1
+        if let currentIndex = activeFieldIndex, currentIndex > 0 {
+            // Decrement the index to move to the previous field
+            activeFieldIndex = currentIndex - 1
+            // Update multi-select options for the new active field
+            updateMultiSelectOnFieldChange(newIndex: activeFieldIndex!)
         } else {
-            activeFieldIndex = displayFields.count - 1 // Loop to the last field
+            // Loop to the last field if at the first field
+            activeFieldIndex = displayFields.count - 1
+            updateMultiSelectOnFieldChange(newIndex: activeFieldIndex!)
         }
     }
+
+    
+    private func updateMultiSelectOnFieldChange(newIndex: Int) {
+        guard newIndex < displayFields.count else { return }
+
+        let newField = displayFields[newIndex]
+
+        if newField.kind == "multi_select" {
+            // If switching to a multi-select field, update the selection based on capturedData
+            selectedMultiOptions = parseArrayString(capturedData[newField.name] ?? "")
+            updateCapturedTextForMultiSelect()
+        } else {
+            // If switching to a non-multi-select field, clear the selection
+            selectedMultiOptions = []
+            capturedText = capturedData[newField.name] ?? ""
+        }
+    }
+
+
 
     private func captureCurrentFieldData() {
-        guard let activeFieldIndex = activeFieldIndex, activeFieldIndex < displayFields.count else { return }
-        let field = displayFields[activeFieldIndex]
+        guard let activeField = getActiveField() else { return }
 
-        if field.kind == "multi_select", let options = field.options {
-            // For 'multi_select', always use the array of options
-            capturedData[field.name] = options.joined(separator: ",")
-        } else {
-            // For other field types, use the entered text or default value
-            let fieldData = capturedText.isEmpty ? (field.defaultValue ?? "") : capturedText
-            if field.priority != "mandatory" || !fieldData.isEmpty {
-                capturedData[field.name] = fieldData
-            }
+        switch activeField.kind {
+        case "multi_select":
+            capturedData[activeField.name] = selectedMultiOptions.joined(separator: ",")
+        case "select":
+            capturedData[activeField.name] = capturedText
+        default:
+            capturedData[activeField.name] = capturedText.isEmpty ? (activeField.defaultValue ?? "") : capturedText
         }
-        filledFields.insert(activeFieldIndex)
+        filledFields.insert(activeFieldIndex ?? -1)
     }
+
 
 
     private func moveToNextFieldOrFinish() {
@@ -584,6 +689,7 @@ struct CaptureView: View {
         selectedIndex = nil
         filledFields = []
         capturedData = [:] // Reset captured data for the new template
+        fetchOptionsForFields(from: template.databaseId!)
         
         // Call fetchOptionsForSelectField here
         if let databaseId = template.databaseId {
@@ -597,6 +703,21 @@ struct CaptureView: View {
         capturedText = ""
         selectedIndex = templates.firstIndex(of: selectedTemplate)
         NotificationCenter.default.post(name: NSNotification.Name("CloseCaptureWindow"), object: nil)
+    }
+    
+    private func handleCapturedTextChange(_ newValue: String) {
+        if let activeField = getActiveField() {
+            switch activeField.kind {
+            case "multi_select":
+                let inputOptions = newValue.components(separatedBy: ", ").filter { !$0.isEmpty }
+                selectedMultiOptions = inputOptions
+            case "select":
+                // For simple selects, directly update the captured data
+                capturedData[activeField.name] = newValue
+            default:
+                break
+            }
+        }
     }
 
     private func iconForField(field: EditableTemplateFieldViewData, index: Int) -> some View {
