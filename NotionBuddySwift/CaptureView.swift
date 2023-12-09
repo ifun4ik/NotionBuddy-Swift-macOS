@@ -20,7 +20,7 @@ struct CaptureView: View {
     @State private var activeOptionIndex: Int = 0
     @State private var selectedMultiOptions: [String] = []
     @State private var multiSelectFilterText: String = ""
-
+    @State private var handledEvents: Set<NSEvent> = []
     
     var accessToken: String
     
@@ -126,9 +126,12 @@ struct CaptureView: View {
                     }
 
                     .onAppear {
-                        capturedData = [:]
+                        var capturedDataCopy = capturedData
+                        capturedDataCopy = [:]
                         setupKeyEventHandling()
+                        capturedData = capturedDataCopy
                     }
+
             }
             .padding(16)
             .background(Color.white)
@@ -139,28 +142,21 @@ struct CaptureView: View {
                     .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
             )
             
-            if let activeField = getActiveField(), ["select", "multi_select", "status"].contains(activeField.kind) {
-                if let options = optionsForFields[activeField.name] {
-                    SelectOptionsView(
-                        options: options,
-                        onOptionSelected: { selectedOptions in  // Handle an array of selected options
-                            if activeField.kind == "multi_select" {
-                                // For multi-select, join the selected options
-                                capturedData[activeField.name] = selectedOptions.joined(separator: ",")
-                            } else if let selectedOption = selectedOptions.first {
-                                // For single select, take the first (and only) selection
-                                capturedData[activeField.name] = selectedOption
-                            } else {
-                                // Handle the case where no option is selected (if needed)
-                                capturedData[activeField.name] = "" // Or any default value
-                            }
-                        },
-                        filterText: $multiSelectFilterText,
-                        maxVisibleOptions: 4,
-                        activeOptionIndex: $activeOptionIndex,
-                        selectedOptions: $selectedMultiOptions,
-                        isMultiSelect: activeField.kind == "multi_select"
-                    )
+            if let activeField = getActiveField() {
+                if ["select", "multi_select"].contains(activeField.kind) {
+                    if let options = optionsForFields[activeField.name] {
+                        SelectOptionsView(
+                            options: options,
+                            onOptionSelected: { selectedOptions in
+                                handleOptionSelection(activeField: activeField, selectedOptions: selectedOptions)
+                            },
+                            filterText: $multiSelectFilterText,
+                            maxVisibleOptions: 4,
+                            activeOptionIndex: $activeOptionIndex,
+                            selectedOptions: $selectedMultiOptions,
+                            isMultiSelect: activeField.kind == "multi_select"
+                        )
+                    }
                 }
             }
 
@@ -219,12 +215,22 @@ struct CaptureView: View {
                     .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
             )
         }
+        
     }
+    
+    private func handleOptionSelection(activeField: EditableTemplateFieldViewData, selectedOptions: [String]) {
+        if activeField.kind == "multi_select" {
+            selectedMultiOptions = selectedOptions
+            capturedData[activeField.name] = selectedOptions.joined(separator: ",")
+        }
+    }
+
+    
     
     //MARK: Select view
     struct SelectOptionsView: View {
         var options: [String]
-        let onOptionSelected: ([String]) -> Void // Change to pass an array of strings
+        let onOptionSelected: ([String]) -> Void
         @Binding var filterText: String
         let maxVisibleOptions: Int
         @Binding var activeOptionIndex: Int
@@ -374,15 +380,26 @@ struct CaptureView: View {
     }
     
     
+    private func prepareForCapture() {
+        capturedData = [:]
+        setupKeyEventHandling()
+    }
+    
     private func setupKeyEventHandling() {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            self.handleKeyEvent(event)
+            if !handledEvents.contains(event) {
+                handledEvents.insert(event)
+                self.handleKeyEvent(event)
+                handledEvents.remove(event)
+            }
             return event
         }
     }
 
+
     private func handleKeyEvent(_ event: NSEvent) {
         if event.modifierFlags.contains(.command) && event.keyCode == 36 {
+            print("Cmd+Enter")
             cmdEnterPressed()
             return
         }
@@ -399,6 +416,9 @@ struct CaptureView: View {
                     moveToNextFieldOrFinish()
                 }
             case 48:  // Tab key
+                if shouldCaptureData() {
+                    captureCurrentFieldData()  // Capture data when there's input
+                }
                 if event.modifierFlags.contains(.shift) {
                     switchToPreviousField()
                 } else {
@@ -411,6 +431,22 @@ struct CaptureView: View {
             }
         } else {
             handleTemplateSelection(event: event)
+        }
+    }
+    
+    private func shouldCaptureData() -> Bool {
+        guard let activeFieldIndex = activeFieldIndex,
+              displayFields.indices.contains(activeFieldIndex) else { return false }
+
+        let activeField = displayFields[activeFieldIndex]
+
+        switch activeField.kind {
+        case "multi_select":
+            return !selectedMultiOptions.isEmpty
+        case "select", "status":
+            return !capturedText.isEmpty
+        default:
+            return !(capturedData[activeField.name]?.isEmpty ?? true)
         }
     }
 
@@ -428,35 +464,43 @@ struct CaptureView: View {
 
     
     private func handleSelectFieldKeyEvent(keyCode: UInt16, for activeField: EditableTemplateFieldViewData) {
-        guard let options = optionsForFields[activeField.name] else { return }
-
-        switch keyCode {
-        case 125:  // Down arrow key
-            activeOptionIndex = (activeOptionIndex + 1) % options.count
-        case 126:  // Up arrow key
-            activeOptionIndex = (activeOptionIndex - 1 + options.count) % options.count
-        default:
-            break
-        }
-
-        // Update captured data immediately as the user navigates through options
-        capturedData[activeField.name] = options[activeOptionIndex]
+      guard let options = optionsForFields[activeField.name] else { return }
+      
+      switch keyCode {
+      case 125: // Down arrow key
+          activeOptionIndex = (activeOptionIndex + 1) % options.count
+          capturedText = options[activeOptionIndex]
+      case 126: // Up arrow key
+          activeOptionIndex = (activeOptionIndex - 1 + options.count) % options.count
+          capturedText = options[activeOptionIndex]
+      default:
+          break
+      }
+      
+      // Update captured data immediately as the user navigates through options
+      capturedData[activeField.name] = options[activeOptionIndex]
     }
+
+
     
     private func handleMultiSelectFieldKeyEvent(keyCode: UInt16) {
-        guard let activeField = getActiveField(), let options = optionsForFields[activeField.name] else { return }
-        let currentOption = options[safe: activeOptionIndex] ?? ""
-        switch keyCode {
-        case 125:  // Down arrow key
-            activeOptionIndex = (activeOptionIndex + 1) % options.count
-        case 126:  // Up arrow key
-            activeOptionIndex = (activeOptionIndex - 1 + options.count) % options.count
-        case 36:  // Enter/Return key
-            toggleMultiSelectOption(currentOption)
-        default:
-            break
-        }
+      guard let activeField = getActiveField(), let options = optionsForFields[activeField.name] else { return }
+      let currentOption = options[safe: activeOptionIndex] ?? ""
+      switch keyCode {
+      case 125: // Down arrow key
+          activeOptionIndex = (activeOptionIndex + 1) % options.count
+          updateCapturedTextForMultiSelect()
+      case 126: // Up arrow key
+          activeOptionIndex = (activeOptionIndex - 1 + options.count) % options.count
+          updateCapturedTextForMultiSelect()
+      case 36: // Enter/Return key
+          toggleMultiSelectOption(currentOption)
+          updateCapturedTextForMultiSelect()
+      default:
+          break
+      }
     }
+
 
     private func toggleMultiSelectOption(_ option: String) {
         if let index = selectedMultiOptions.firstIndex(of: option) {
@@ -636,6 +680,7 @@ struct CaptureView: View {
             highlightUnfilledRequiredFields() // Highlight unfilled mandatory fields
         }
     }
+
 
     private func captureAllFieldData() {
         for (index, field) in displayFields.enumerated() {
