@@ -45,7 +45,7 @@ class GlobalShortcutManager {
             if let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }) {
                 let screenRect = screen.visibleFrame
                 let xPos = screenRect.origin.x + (screenRect.width - 480) / 2
-                let yPos = screenRect.origin.y + (screenRect.height - 200) / 2
+                let yPos = screenRect.origin.y + (screenRect.height) / 2
                 window.setFrameOrigin(NSPoint(x: xPos, y: yPos))
             }
             

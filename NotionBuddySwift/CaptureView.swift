@@ -143,7 +143,7 @@ struct CaptureView: View {
             )
             
             if let activeField = getActiveField() {
-                if ["select", "multi_select"].contains(activeField.kind) {
+                if ["select", "multi_select", "status"].contains(activeField.kind) {
                     if let options = optionsForFields[activeField.name] {
                         SelectOptionsView(
                             options: options,
@@ -229,84 +229,87 @@ struct CaptureView: View {
     
     //MARK: Select view
     struct SelectOptionsView: View {
-        var options: [String]
-        let onOptionSelected: ([String]) -> Void
-        @Binding var filterText: String
-        let maxVisibleOptions: Int
-        @Binding var activeOptionIndex: Int
-        @Binding var selectedOptions: [String]
-        let isMultiSelect: Bool
+      var options: [String]
+      let onOptionSelected: ([String]) -> Void
+      @Binding var filterText: String
+      let maxVisibleOptions: Int
+      @Binding var activeOptionIndex: Int
+      @Binding var selectedOptions: [String]
+      let isMultiSelect: Bool
 
-        private var filteredOptions: [String] {
-            options.filter { option in
-                filterText.isEmpty || option.lowercased().contains(filterText.lowercased())
-            }
+      private var filteredOptions: [String] {
+        options.filter { option in
+          filterText.isEmpty || option.lowercased().contains(filterText.lowercased())
         }
+      }
 
-        private let optionHeight: CGFloat = 44
+      private let optionHeight: CGFloat = 44
 
-        var body: some View {
-            VStack(alignment: .leading) {
-                ScrollViewReader { scrollViewProxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading) {
-                            ForEach(Array(filteredOptions.enumerated()), id: \.element) { index, option in
-                                HStack {
-                                    if isMultiSelect {
-                                        if selectedOptions.contains(option) {
-                                            Image(systemName: "checkmark.square.fill")
-                                                .foregroundColor(Constants.colorPrimary)
-                                        } else {
-                                            Image(systemName: "square")
-                                                .foregroundColor(Constants.textSecondary)
-                                        }
-                                    }
-                                    Text(option)
-                                        .font(Font.custom("Onest", size: 16).weight(.semibold))
-                                        .foregroundColor(Constants.textPrimary)
-                                        .id(index)
-                                }
-                                .padding(.horizontal, 16)
-                                .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
-                                .background(index == activeOptionIndex ? Constants.bgPrimaryHover : Color.clear)
-                                .onTapGesture {
-                                    toggleOptionSelection(option)
-                                }
-                            }
-                        }
+      var body: some View {
+        VStack(alignment: .leading) {
+          ScrollViewReader { scrollViewProxy in
+            ScrollView {
+              LazyVStack(alignment: .leading) {
+                ForEach(Array(filteredOptions.enumerated()), id: \.element) { index, option in
+                  HStack {
+                    if isMultiSelect {
+                      if selectedOptions.contains(option) {
+                        Image(systemName: "checkmark.square.fill")
+                          .foregroundColor(Constants.colorPrimary)
+                      } else {
+                        Image(systemName: "square")
+                          .foregroundColor(Constants.textSecondary)
+                      }
                     }
-                    .onChange(of: activeOptionIndex) { newIndex in
-                        withAnimation {
-                            scrollViewProxy.scrollTo(newIndex, anchor: .center)
-                        }
+                    Text(option)
+                      .font(Font.custom("Onest", size: 16).weight(.semibold))
+                      .foregroundColor(Constants.textPrimary)
+                      .id(index)
+                  }
+                  .padding(.horizontal, 16)
+                  .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
+                  .background(index == activeOptionIndex ? Constants.bgPrimaryHover : Color.clear)
+                  .onTapGesture {
+                    toggleOptionSelection(option)
+                  }
+                }
+              }
+            }
+            .onChange(of: activeOptionIndex) { newIndex in
+                DispatchQueue.main.async {
+                    withAnimation {
+                        scrollViewProxy.scrollTo(newIndex, anchor: .center)
                     }
                 }
-                .frame(minHeight: CGFloat(min(filteredOptions.count, maxVisibleOptions)) * optionHeight)
             }
-            .background(Constants.bgPrimary)
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .inset(by: 1)
-                    .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
-            )
         }
+          .frame(minHeight: CGFloat(min(filteredOptions.count, maxVisibleOptions)) * optionHeight)
+        }
+        .background(Constants.bgPrimary)
+        .cornerRadius(8)
+        .overlay(
+          RoundedRectangle(cornerRadius: 8)
+            .inset(by: 1)
+            .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
+        )
+      }
 
-        private func toggleOptionSelection(_ option: String) {
-           if isMultiSelect {
-               if selectedOptions.contains(option) {
-                   selectedOptions.removeAll(where: { $0 == option })
-               } else {
-                   selectedOptions.append(option)
-               }
-               onOptionSelected(selectedOptions) // For multi-select, pass the entire array
-           } else {
-               // For single select, clear the existing selection and add the new one
-               selectedOptions = [option]
-               onOptionSelected([option]) // Pass an array with the single selected item
-           }
-       }
+      private func toggleOptionSelection(_ option: String) {
+        if isMultiSelect {
+          if selectedOptions.contains(option) {
+            selectedOptions.removeAll(where: { $0 == option })
+          } else {
+            selectedOptions.append(option)
+          }
+          onOptionSelected(selectedOptions) // For multi-select, pass the entire array
+        } else {
+          // For single select, clear the existing selection and add the new one
+          selectedOptions = [option]
+          onOptionSelected([option]) // Pass an array with the single selected item
+        }
+      }
     }
+
 
 
     
@@ -453,7 +456,7 @@ struct CaptureView: View {
 
     private func handleArrowKeyEvents(_ event: NSEvent, for activeField: EditableTemplateFieldViewData) {
         switch activeField.kind {
-        case "select":
+        case "select", "status":
             handleSelectFieldKeyEvent(keyCode: event.keyCode, for: activeField)
         case "multi_select":
             handleMultiSelectFieldKeyEvent(keyCode: event.keyCode)
@@ -464,42 +467,40 @@ struct CaptureView: View {
 
     
     private func handleSelectFieldKeyEvent(keyCode: UInt16, for activeField: EditableTemplateFieldViewData) {
-      guard let options = optionsForFields[activeField.name] else { return }
-      
-      switch keyCode {
-      case 125: // Down arrow key
-          activeOptionIndex = (activeOptionIndex + 1) % options.count
-          capturedText = options[activeOptionIndex]
-      case 126: // Up arrow key
-          activeOptionIndex = (activeOptionIndex - 1 + options.count) % options.count
-          capturedText = options[activeOptionIndex]
-      default:
-          break
-      }
-      
-      // Update captured data immediately as the user navigates through options
-      capturedData[activeField.name] = options[activeOptionIndex]
+        guard let options = optionsForFields[activeField.name] else { return }
+
+        switch keyCode {
+        case 125: // Down arrow key
+            activeOptionIndex = (activeOptionIndex + 1) % options.count
+            capturedText = options[safe: activeOptionIndex] ?? ""
+        case 126: // Up arrow key
+            activeOptionIndex = activeOptionIndex == 0 ? options.count - 1 : activeOptionIndex - 1
+            capturedText = options[safe: activeOptionIndex] ?? ""
+        default:
+            break
+        }
+
+        capturedData[activeField.name] = capturedText
     }
+
 
 
     
     private func handleMultiSelectFieldKeyEvent(keyCode: UInt16) {
-      guard let activeField = getActiveField(), let options = optionsForFields[activeField.name] else { return }
-      let currentOption = options[safe: activeOptionIndex] ?? ""
-      switch keyCode {
-      case 125: // Down arrow key
-          activeOptionIndex = (activeOptionIndex + 1) % options.count
-          updateCapturedTextForMultiSelect()
-      case 126: // Up arrow key
-          activeOptionIndex = (activeOptionIndex - 1 + options.count) % options.count
-          updateCapturedTextForMultiSelect()
-      case 36: // Enter/Return key
-          toggleMultiSelectOption(currentOption)
-          updateCapturedTextForMultiSelect()
-      default:
-          break
-      }
+        guard let activeField = getActiveField(), let options = optionsForFields[activeField.name] else { return }
+
+        switch keyCode {
+        case 125: // Down arrow key
+            activeOptionIndex = (activeOptionIndex + 1) % options.count
+        case 126: // Up arrow key
+            activeOptionIndex = activeOptionIndex == 0 ? options.count - 1 : activeOptionIndex - 1
+        default:
+            break
+        }
+
+        updateCapturedTextForMultiSelect()
     }
+
 
 
     private func toggleMultiSelectOption(_ option: String) {
@@ -518,7 +519,7 @@ struct CaptureView: View {
         switch activeField.kind {
         case "multi_select":
             capturedData[activeField.name] = selectedMultiOptions.joined(separator: ",")
-        case "select":
+        case "select", "status":
             capturedData[activeField.name] = capturedText
         default:
             capturedData[activeField.name] = capturedText.isEmpty ? (activeField.defaultValue ?? "") : capturedText
@@ -614,7 +615,7 @@ struct CaptureView: View {
         switch activeField.kind {
         case "multi_select":
             capturedData[activeField.name] = selectedMultiOptions.joined(separator: ",")
-        case "select":
+        case "select", "status":
             capturedData[activeField.name] = capturedText
         default:
             capturedData[activeField.name] = capturedText.isEmpty ? (activeField.defaultValue ?? "") : capturedText
@@ -756,7 +757,7 @@ struct CaptureView: View {
             case "multi_select":
                 let inputOptions = newValue.components(separatedBy: ", ").filter { !$0.isEmpty }
                 selectedMultiOptions = inputOptions
-            case "select":
+            case "select", "status":
                 // For simple selects, directly update the captured data
                 capturedData[activeField.name] = newValue
             default:
