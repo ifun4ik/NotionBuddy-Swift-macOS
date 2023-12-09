@@ -276,12 +276,11 @@ struct CaptureView: View {
               }
             }
             .onChange(of: activeOptionIndex) { newIndex in
-                DispatchQueue.main.async {
-                    withAnimation {
-                        scrollViewProxy.scrollTo(newIndex, anchor: .center)
-                    }
+                withAnimation(.easeInOut(duration: 1.5)) {
+                    scrollViewProxy.scrollTo(newIndex, anchor: .center)
                 }
             }
+
         }
           .frame(minHeight: CGFloat(min(filteredOptions.count, maxVisibleOptions)) * optionHeight)
         }
@@ -471,35 +470,40 @@ struct CaptureView: View {
 
         switch keyCode {
         case 125: // Down arrow key
-            activeOptionIndex = (activeOptionIndex + 1) % options.count
-            capturedText = options[safe: activeOptionIndex] ?? ""
+            if activeOptionIndex < options.count - 1 {
+                activeOptionIndex += 1
+            }
         case 126: // Up arrow key
-            activeOptionIndex = activeOptionIndex == 0 ? options.count - 1 : activeOptionIndex - 1
-            capturedText = options[safe: activeOptionIndex] ?? ""
+            if activeOptionIndex > 0 {
+                activeOptionIndex -= 1
+            }
         default:
             break
         }
 
+        capturedText = options[safe: activeOptionIndex] ?? ""
         capturedData[activeField.name] = capturedText
     }
 
-
-
-    
     private func handleMultiSelectFieldKeyEvent(keyCode: UInt16) {
         guard let activeField = getActiveField(), let options = optionsForFields[activeField.name] else { return }
 
         switch keyCode {
         case 125: // Down arrow key
-            activeOptionIndex = (activeOptionIndex + 1) % options.count
+            if activeOptionIndex < options.count - 1 {
+                activeOptionIndex += 1
+            }
         case 126: // Up arrow key
-            activeOptionIndex = activeOptionIndex == 0 ? options.count - 1 : activeOptionIndex - 1
+            if activeOptionIndex > 0 {
+                activeOptionIndex -= 1
+            }
         default:
             break
         }
 
         updateCapturedTextForMultiSelect()
     }
+
 
 
 
@@ -547,18 +551,18 @@ struct CaptureView: View {
 
     private func switchToNextField() {
         guard let index = activeFieldIndex, displayFields.indices.contains(index) else { return }
-
         let currentField = displayFields[index]
         if currentField.priority == "mandatory" && (capturedData[currentField.name]?.isEmpty ?? true) {
             // If current field is mandatory and empty, don't move to next field
             attemptedFinish = true
         } else {
             activeFieldIndex = index < displayFields.count - 1 ? index + 1 : 0
-            updatePlaceholder()  // Call a function to update the placeholder
+            activeOptionIndex = 0
+            updatePlaceholder()
         }
-        
-        updateMultiSelectOnFieldChange(newIndex: index + 1)
     }
+
+
     
     private func updatePlaceholder() {
         if let index = activeFieldIndex, index < displayFields.count {
@@ -588,6 +592,7 @@ struct CaptureView: View {
             activeFieldIndex = displayFields.count - 1
             updateMultiSelectOnFieldChange(newIndex: activeFieldIndex!)
         }
+        activeOptionIndex = 0
     }
 
     
