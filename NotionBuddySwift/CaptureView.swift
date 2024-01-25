@@ -7,7 +7,7 @@ struct CaptureView: View {
     @FetchRequest(entity: Template.entity(), sortDescriptors: [])
     var templates: FetchedResults<Template>
     @Environment(\.managedObjectContext) private var managedObjectContext
-    
+    @State private var fieldValidationStatus: [String: Bool] = [:]
     @State private var capturedText: String = ""
     @State private var selectedIndex: Int? = nil
     @State private var committedTemplate: Template? = nil
@@ -21,6 +21,10 @@ struct CaptureView: View {
     @State private var selectedMultiOptions: [String] = []
     @State private var multiSelectFilterText: String = ""
     @State private var handledEvents: Set<NSEvent> = []
+    
+    @State private var recognizedDate: Date? = nil
+   @State private var recognizedDateText: String = ""
+    
     
     var accessToken: String
     
@@ -43,23 +47,32 @@ struct CaptureView: View {
         guard let index = activeFieldIndex, index < displayFields.count else {
             return "Type something..."
         }
-        
+
         let field = displayFields[index]
 
-        // If the field is filled, return its value instead of the default placeholder
         if filledFields.contains(index), let filledValue = capturedData[field.name], !filledValue.isEmpty {
             return filledValue
         }
 
-        // Default placeholder logic
-        if field.kind == "multi_select" {
+        switch field.kind {
+        case "date":
+            return "Type date in a free format"
+        case "number":
+            return "Enter a number"
+        case "email":
+            return "Enter an email address"
+        case "checkbox":
+            return "Type true or false"
+        case "multi_select":
             if let defaultValue = field.defaultValue as? String {
                 let parsedArray = parseArrayString(defaultValue)
                 return parsedArray.isEmpty ? "Type something..." : parsedArray.joined(separator: ", ")
             }
+        default:
+            return field.defaultValue as? String ?? "Type something..."
         }
-        return field.defaultValue as? String ?? "Type something..."
     }
+
 
 
     private func parseArrayString(_ arrayString: String) -> [String] {
@@ -98,7 +111,7 @@ struct CaptureView: View {
                     .padding(.top, 2)
                     .textFieldStyle(.plain)
                     .font(Font.custom("SF Pro Text", size: 16).weight(.medium))
-                    .foregroundColor(Constants.textPrimary)
+                    .foregroundColor(getTextFieldColor())
                     .introspect(.textField, on: .macOS(.v10_15, .v11, .v12, .v13, .v14)) { textField in
                         DispatchQueue.main.asyncAfter(deadline: .now()) {
                             textField.becomeFirstResponder()
@@ -119,6 +132,8 @@ struct CaptureView: View {
                                 ]
                                 textField.placeholderAttributedString = NSAttributedString(string: placeholderString, attributes: placeholderAttributes)
                             }
+                            
+                            textField.toolTip = recognizedDate != nil ? recognizedDateText : nil
                         }
                     }
                     .onChange(of: capturedText) { newValue in
@@ -222,6 +237,14 @@ struct CaptureView: View {
         if activeField.kind == "multi_select" {
             selectedMultiOptions = selectedOptions
             capturedData[activeField.name] = selectedOptions.joined(separator: ",")
+        }
+    }
+    
+    private func getTextFieldColor() -> Color {
+        if let activeField = getActiveField(), activeField.kind == "date", recognizedDate != nil {
+            return Constants.colorPrimary
+        } else {
+            return Constants.textPrimary
         }
     }
 
@@ -622,6 +645,12 @@ struct CaptureView: View {
             capturedData[activeField.name] = selectedMultiOptions.joined(separator: ",")
         case "select", "status":
             capturedData[activeField.name] = capturedText
+        case "date":
+            // Use the recognized date text if available, otherwise use the raw input
+            let dateText = recognizedDate != nil ? recognizedDateText : capturedText
+            capturedData[activeField.name] = dateText
+        case "checkbox":
+                capturedData[activeField.name] = capturedText.lowercased() == "true" ? "true" : "false"
         default:
             capturedData[activeField.name] = capturedText.isEmpty ? (activeField.defaultValue ?? "") : capturedText
         }
@@ -679,7 +708,6 @@ struct CaptureView: View {
             // If validation passes, capture all field data and finish capture
             captureAllFieldData()
             finishCapture()
-            closeCaptureView()  // Implement this method to close the capture view
         } else {
             // If validation fails, set attemptedFinish to true to indicate a failed attempt
             attemptedFinish = true
@@ -729,10 +757,6 @@ struct CaptureView: View {
         }
     }
 
-    private func closeCaptureView() {
-        // Logic to close the capture view
-    }
-
     func commitTemplate(_ template: Template) {
         committedTemplate = template
         activeFieldIndex = 0
@@ -756,14 +780,173 @@ struct CaptureView: View {
         NotificationCenter.default.post(name: NSNotification.Name("CloseCaptureWindow"), object: nil)
     }
     
+    private func detectDateUsingDetector(from text: String) -> Date? {
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: Date())
+
+        // Try parsing the date with the current year first
+        let testDateString = "\(text) \(currentYear)"
+        if let testDate = parseDate(testDateString), calendar.isDateInFuture(testDate) {
+            return testDate
+        }
+
+        // If the test date is not in the future, parse it with the next year
+        let nextYearDateString = "\(text) \(currentYear + 1)"
+        return parseDate(nextYearDateString)
+    }
+
+    // Function to parse a date string
+    private func parseDate(_ dateString: String) -> Date? {
+        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue)
+        let matches = detector?.matches(in: dateString, options: [], range: NSRange(location: 0, length: dateString.utf16.count))
+
+        if let match = matches?.first, match.resultType == .date, let date = match.date {
+            return date
+        }
+        return nil
+    }
+
+    private func appropriateYearForMonth(text: String) -> Int {
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: Date())
+        let currentMonth = calendar.component(.month, from: Date())
+        let currentDay = calendar.component(.day, from: Date())
+        
+        let monthIndex = monthIndexFromText(text)
+        let day = dayOfMonthFromText(text) ?? 32 // Use a day that will never match the current day
+
+        // If the date (month and day) has already occurred this year, use the next year
+        if monthIndex < currentMonth || (monthIndex == currentMonth && day <= currentDay) {
+            return currentYear + 1
+        } else {
+            // Otherwise, use the current year
+            return currentYear
+        }
+    }
+
+    // Function to get the index of a month from a text
+    private func monthIndexFromText(_ text: String) -> Int {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMM"
+        guard let months = dateFormatter.shortMonthSymbols else { return 0 }
+
+        let lowercasedText = text.lowercased()
+        for (index, month) in months.enumerated() {
+            if lowercasedText.contains(month.lowercased()) {
+                return index + 1 // month indices start at 1
+            }
+        }
+        return 0 // Return 0 if no month is found
+    }
+
+    // Function to get the day of the month from text
+    private func dayOfMonthFromText(_ text: String) -> Int? {
+        let words = text.split { !$0.isNumber }
+        if let dayString = words.first, let day = Int(dayString) {
+            return day
+        }
+        return nil
+    }
+    
+    private func textContainsYear(_ text: String) -> Bool {
+        // Regex pattern to find a year in the text (e.g., "2024", "24")
+        let yearPattern = "\\b\\d{2,4}\\b"
+        return text.range(of: yearPattern, options: .regularExpression) != nil
+    }
+
+    // Check for relative date phrases
+    private func handleRelativeDatePhrases(_ text: String) -> Date? {
+        let lowercasedText = text.lowercased()
+        let calendar = Calendar.current
+        let today = Date()
+
+        switch lowercasedText {
+        case "today":
+            return today
+        case "tomorrow":
+            return calendar.date(byAdding: .day, value: 1, to: today)
+        case "yesterday":
+            return calendar.date(byAdding: .day, value: -1, to: today)
+        case let str where str.starts(with: "next"):
+            let components = str.components(separatedBy: " ")
+            if components.count == 2, let weekday = getWeekdayFromName(components[1]) {
+                return getNextWeekday(weekday)
+            }
+        default:
+            break
+        }
+
+        return nil
+    }
+    
+    private func detectDate(from text: String) -> Date? {
+       let lowercasedText = text.lowercased()
+       let calendar = Calendar.current
+       let today = Date()
+
+       switch lowercasedText {
+       case "tod", "today":
+           return today
+       case "tom", "tmr", "tomorrow":
+           return calendar.date(byAdding: .day, value: 1, to: today)
+       // ... other cases for 'yesterday', 'next', etc.
+       default:
+           return detectDateUsingDetector(from: text)
+       }
+   }
+
+    // Get weekday from name
+    private func getWeekdayFromName(_ name: String) -> Int? {
+        let weekdays = ["sunday": 1, "monday": 2, "tuesday": 3, "wednesday": 4, "thursday": 5, "friday": 6, "saturday": 7]
+        return weekdays[name.lowercased()]
+    }
+
+    // Get next occurrence of a weekday
+    private func getNextWeekday(_ weekday: Int) -> Date? {
+        var components = DateComponents()
+        components.weekday = weekday
+        let nextWeekday = Calendar.current.nextDate(after: Date(), matching: components, matchingPolicy: .nextTime)
+        return nextWeekday
+    }
+
+    // Check if the input text is likely a complete date
+    private func isLikelyCompleteDate(_ text: String) -> Bool {
+        // Patterns covering various date formats
+        let patterns = [
+            "\\d{2}/\\d{2}/\\d{2,4}", "\\d{2}-\\d{2}-\\d{2,4}", "\\d{2}, [A-Za-z]+ \\d{2,4}",
+            "[A-Za-z]+ \\d{2}, \\d{2,4}", "\\d{2} [A-Za-z]{3}, \\d{2,4}", "[A-Za-z]{3} \\d{2}, \\d{2,4}",
+            "\\d{4}/\\d{2}/\\d{2}", "\\d{4}-\\d{2}-\\d{2}", "\\d{4}, [A-Za-z]+ \\d{2}",
+            "\\d{2}/\\d{2}/\\d{2}", "\\d{2}-\\d{2}-\\d{2}", "\\d{2}, [A-Za-z]+ \\d{2}",
+            "[A-Za-z]+ \\d{2}, \\d{2}", "\\d{2} [A-Za-z]{3}, \\d{2}", "[A-Za-z]{3} \\d{2}, \\d{2}"
+        ]
+
+        for pattern in patterns {
+            if text.range(of: pattern, options: .regularExpression) != nil {
+                return true
+            }
+        }
+        return false
+    }
+
+    
     private func handleCapturedTextChange(_ newValue: String) {
         if let activeField = getActiveField() {
             switch activeField.kind {
+            case "date":
+                recognizedDate = detectDate(from: newValue)
+                if let date = recognizedDate {
+                    recognizedDateText = notionAPICompatibleDateString(from: date)
+                } else {
+                    recognizedDateText = ""
+                }
+            case "number":
+                capturedData[activeField.name] = newValue.filter { $0.isNumber }
+            case "email":
+                capturedData[activeField.name] = isValidEmail(newValue) ? newValue : ""
             case "multi_select":
                 let inputOptions = newValue.components(separatedBy: ", ").filter { !$0.isEmpty }
                 selectedMultiOptions = inputOptions
             case "select", "status":
-                // For simple selects, directly update the captured data
                 capturedData[activeField.name] = newValue
             default:
                 break
@@ -771,30 +954,67 @@ struct CaptureView: View {
         }
     }
 
+    // Email validation function
+    private func isValidEmail(_ email: String) -> Bool {
+        let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailTest = NSPredicate(format:"SELF MATCHES %@", emailRegEx)
+        return emailTest.evaluate(with: email)
+    }
+
+    
+    private func formatAsDate(_ input: String) -> String {
+        var cleanedInput = input.filter { "0123456789".contains($0) }
+        if cleanedInput.count > 8 { cleanedInput = String(cleanedInput.prefix(8)) }
+
+        var formattedDate = ""
+        for (index, char) in cleanedInput.enumerated() {
+            if index == 2 || index == 4 {
+                formattedDate.append(" / ")
+            }
+            formattedDate.append(char)
+        }
+
+        // Fill with placeholder if needed
+        let placeholders = ["MM", "DD", "YYYY"]
+        let components = formattedDate.split(separator: "/").map(String.init)
+        for i in components.count..<3 {
+            if !formattedDate.isEmpty { formattedDate.append("/") }
+            formattedDate.append(placeholders[i])
+        }
+
+        return formattedDate
+    }
+
+
+    private func notionAPICompatibleDateString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        // Notion API uses ISO 8601 format for dates
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    // Update the isValidDate function to use the DateFormatter
+    func isValidDate(_ dateString: String) -> Bool {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: dateString) != nil
+    }
+
+
     private func iconForField(field: EditableTemplateFieldViewData, index: Int) -> some View {
         let iconName: String
         let iconColor: Color
-        let isFieldMandatory = field.priority == "mandatory"
-        let isFieldFilled = filledFields.contains(index) || !(capturedData[field.name] ?? "").isEmpty
-        
-        if activeFieldIndex == index && !isFieldFilled{
-            iconName = "dot.square"
-            if isFieldMandatory {
-                iconColor = Color.orange
-            } else {
-                iconColor = Constants.colorPrimary
-            }
-        } else if isFieldFilled {
+        let isFieldValid = fieldValidationStatus[field.name] ?? true // Assume valid if not explicitly invalid
+
+        if !isFieldValid {
+            iconName = "exclamationmark.triangle"
+            iconColor = Color.red
+        } else if filledFields.contains(index) || !(capturedData[field.name] ?? "").isEmpty {
             iconName = "checkmark.square"
             iconColor = Constants.iconSecondary
-        } else if isFieldMandatory && !isFieldFilled {
-            if attemptedFinish {
-                iconName = "exclamationmark.triangle"
-                iconColor = Color.red
-            } else {
-                iconName = "square"
-                iconColor = Color.orange
-            }
+        } else if field.priority == "mandatory" {
+            iconName = "square"
+            iconColor = Color.orange
         } else {
             iconName = "square"
             iconColor = Constants.iconSecondary
@@ -805,6 +1025,7 @@ struct CaptureView: View {
             .frame(width: 16, height: 16)
             .foregroundColor(iconColor)
     }
+
 
 }
     
@@ -823,5 +1044,11 @@ struct CaptureView: View {
 extension Array {
     subscript(safe index: Int) -> Element? {
         return indices.contains(index) ? self[index] : nil
+    }
+}
+
+extension Calendar {
+    func isDateInFuture(_ date: Date) -> Bool {
+        return date > Date()
     }
 }
