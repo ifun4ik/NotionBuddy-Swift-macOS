@@ -25,6 +25,7 @@ class SessionManager: ObservableObject {
             print("notionBuddyID not found in UserDefaults")
         }
     }
+    
 
     func startWebAuthSession() {
         var urlString = "http://localhost:3000"

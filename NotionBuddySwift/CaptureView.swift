@@ -23,7 +23,9 @@ struct CaptureView: View {
     @State private var handledEvents: Set<NSEvent> = []
     
     @State private var recognizedDate: Date? = nil
-   @State private var recognizedDateText: String = ""
+    @State private var recognizedDateText: String = ""
+    @State private var localEventMonitor: Any?
+
     
     
     var accessToken: String
@@ -49,7 +51,6 @@ struct CaptureView: View {
         }
 
         let field = displayFields[index]
-
         if filledFields.contains(index), let filledValue = capturedData[field.name], !filledValue.isEmpty {
             return filledValue
         }
@@ -72,6 +73,19 @@ struct CaptureView: View {
             return field.defaultValue as? String ?? "Type something..."
         }
     }
+    
+    // Additional State for managing sessions and data validation
+    @State private var sessionID: UUID = UUID() // Unique identifier for each session
+
+    private func resetCaptureSession() {
+        // Reset all relevant states for a new capture session
+        self.capturedText = ""
+        self.selectedIndex = nil
+        self.committedTemplate = nil
+        self.fieldValidationStatus = [:]
+        self.sessionID = UUID() // Generate a new session ID
+    }
+
 
 
 
@@ -146,6 +160,14 @@ struct CaptureView: View {
                         setupKeyEventHandling()
                         capturedData = capturedDataCopy
                     }
+                    .onDisappear {
+                        // If there's an event monitor, remove it to prevent capturing new events.
+                        if let localEventMonitor = self.localEventMonitor {
+                            NSEvent.removeMonitor(localEventMonitor)
+                            self.localEventMonitor = nil
+                        }
+                    }
+
 
             }
             .padding(16)
@@ -236,7 +258,7 @@ struct CaptureView: View {
     private func handleOptionSelection(activeField: EditableTemplateFieldViewData, selectedOptions: [String]) {
         if activeField.kind == "multi_select" {
             selectedMultiOptions = selectedOptions
-            capturedData[activeField.name] = selectedOptions.joined(separator: ",")
+            capturedData[activeField.name] = selectedOptions.joined(separator: ", ")
         }
     }
     
@@ -351,7 +373,6 @@ struct CaptureView: View {
 
     
     
-    // Helper function to fetch options for select fields
     func fetchOptionsForFields(from databaseId: String) {
         guard let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)") else {
             print("Invalid URL for database ID: \(databaseId)")
@@ -363,7 +384,7 @@ struct CaptureView: View {
         request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.addValue("2021-05-13", forHTTPHeaderField: "Notion-Version")
 
-        URLSession.shared.dataTask(with: request) { [self] data, response, error in
+        URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 print("Error fetching options: \(error)")
                 return
@@ -375,10 +396,11 @@ struct CaptureView: View {
             }
 
             do {
-                if let jsonResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let properties = jsonResponse["properties"] as? [String: Any] {
-                    DispatchQueue.main.async {
-                        self.extractOptionsFromProperties(properties)
+                if let jsonResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    if let properties = jsonResponse["properties"] as? [String: Any] {
+                        DispatchQueue.main.async {
+                            self.extractOptionsFromProperties(properties)
+                        }
                     }
                 }
             } catch {
@@ -387,6 +409,9 @@ struct CaptureView: View {
         }.resume()
     }
 
+
+
+    // Extract options for 'select', 'multi_select', and 'status' fields
     func extractOptionsFromProperties(_ properties: [String: Any]) {
         var allOptions: [String: [String]] = [:]
 
@@ -404,6 +429,7 @@ struct CaptureView: View {
             self.optionsForFields = allOptions
         }
     }
+
     
     
     private func prepareForCapture() {
@@ -412,15 +438,24 @@ struct CaptureView: View {
     }
     
     private func setupKeyEventHandling() {
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if !handledEvents.contains(event) {
-                handledEvents.insert(event)
+        // If there's an existing key event monitor, deregister it first
+        if let localEventMonitor = localEventMonitor {
+            NSEvent.removeMonitor(localEventMonitor)
+            self.localEventMonitor = nil
+        }
+        
+        // Add a new local monitor
+        self.localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if !self.handledEvents.contains(event) {
+                print("I'm here")
+                self.handledEvents.insert(event)
                 self.handleKeyEvent(event)
-                handledEvents.remove(event)
+                self.handledEvents.remove(event)
             }
             return event
         }
     }
+
 
 
     private func handleKeyEvent(_ event: NSEvent) {
@@ -737,10 +772,92 @@ struct CaptureView: View {
             }
         }
     }
+    
+    private func constructProperties(from capturedData: [String: String]) -> [String: Any] {
+        var properties: [String: Any] = [:]
+
+        for fieldData in displayFields {
+            let fieldName = fieldData.name
+            let fieldValue = capturedData[fieldName] ?? ""
+            
+//            print("Field Name: \(fieldName), Field Value: \(fieldValue)")
+            
+            // Skip the field if the value is empty
+            if fieldValue.isEmpty {
+                continue
+            }
+
+            switch fieldData.kind {
+            case "title":
+                properties[fieldName] = ["title": [["text": ["content": fieldValue]]]]
+            case "text":
+                // Check if this field is the title field
+                if fieldName == "title" { // Replace "Title" with the exact field name used in your Notion database for the title
+                    properties[fieldName] = ["title": [["text": ["content": fieldValue]]]]
+                } else {
+                    properties[fieldName] = ["rich_text": [["text": ["content": fieldValue]]]]
+                }
+            case "number":
+                if let number = Double(fieldValue) {
+                    properties[fieldName] = ["number": number]
+                }
+            case "date":
+                if isValidDate(fieldValue) {
+                    properties[fieldName] = ["date": ["start": fieldValue, "end": nil]]
+                }
+            case "checkbox":
+                properties[fieldName] = ["checkbox": fieldValue.lowercased() == "true"]
+            case "select":
+                properties[fieldName] = ["select": ["name": fieldValue]]
+            case "multi_select":
+                let options = fieldValue.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+                properties[fieldName] = ["multi_select": options.map { ["name": $0] }]
+            default:
+                break
+            }
+        }
+        
+        print("Final properties being sent: \(properties)")
+        
+        return properties
+    }
+
+    
+    func sendCapturedDataToDatabase(databaseId: String) {
+        let url = URL(string: "https://api.notion.com/v1/pages")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("2021-08-16", forHTTPHeaderField: "Notion-Version")
+
+        let body: [String: Any] = [
+            "parent": ["database_id": databaseId],
+            "properties": constructProperties(from: capturedData)
+        ]
+
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard error == nil else {
+                print("Error: \(error!.localizedDescription)")
+                return
+            }
+            if let data = data {
+//                print(String(data: data, encoding: .utf8) ?? "No readable data received in response")
+            }
+        }.resume()
+    }
 
     private func finishCapture() {
         if validateRequiredFields() {
-            print("Capture Finished - Captured Data: \(capturedData)")
+
+            if let databaseId = committedTemplate?.databaseId {
+                sendCapturedDataToDatabase(databaseId: databaseId)
+            } else {
+                print("Error: Database ID not found.")
+            }
+
             capturedData = [:]
             committedTemplate = nil
             capturedText = ""
@@ -751,6 +868,8 @@ struct CaptureView: View {
             // Notify user to fill mandatory fields
         }
     }
+
+    
 
     func commitTemplate(_ template: Template) {
         committedTemplate = template
