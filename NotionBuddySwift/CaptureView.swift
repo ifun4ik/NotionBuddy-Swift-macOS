@@ -780,7 +780,7 @@ struct CaptureView: View {
             let fieldName = fieldData.name
             let fieldValue = capturedData[fieldName] ?? ""
             
-//            print("Field Name: \(fieldName), Field Value: \(fieldValue)")
+            print("Field Name: \(fieldName), Field Kind: \(fieldData.kind ?? "unknown"), Field Value: \(fieldValue)")
             
             // Skip the field if the value is empty
             if fieldValue.isEmpty {
@@ -790,17 +790,18 @@ struct CaptureView: View {
             switch fieldData.kind {
             case "title":
                 properties[fieldName] = ["title": [["text": ["content": fieldValue]]]]
-            case "text":
-                // Check if this field is the title field
-                if fieldName == "title" { // Replace "Title" with the exact field name used in your Notion database for the title
-                    properties[fieldName] = ["title": [["text": ["content": fieldValue]]]]
-                } else {
-                    properties[fieldName] = ["rich_text": [["text": ["content": fieldValue]]]]
-                }
+            case "rich_text", "text":
+                properties[fieldName] = ["rich_text": [["text": ["content": fieldValue]]]]
             case "number":
                 if let number = Double(fieldValue) {
                     properties[fieldName] = ["number": number]
+                } else {
+                    print("Failed to convert \(fieldValue) to a number for field \(fieldName)")
                 }
+            case "url":
+                properties[fieldName] = ["url": fieldValue]
+            case "email":
+                properties[fieldName] = ["email": fieldValue]
             case "date":
                 if isValidDate(fieldValue) {
                     properties[fieldName] = ["date": ["start": fieldValue, "end": nil]]
@@ -809,11 +810,13 @@ struct CaptureView: View {
                 properties[fieldName] = ["checkbox": fieldValue.lowercased() == "true"]
             case "select":
                 properties[fieldName] = ["select": ["name": fieldValue]]
+            case "status":
+                properties[fieldName] = ["status": ["name": fieldValue]]
             case "multi_select":
                 let options = fieldValue.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
                 properties[fieldName] = ["multi_select": options.map { ["name": $0] }]
             default:
-                break
+                print("Unhandled field type: \(fieldData.kind ?? "unknown") for field: \(fieldName)")
             }
         }
         
@@ -823,7 +826,7 @@ struct CaptureView: View {
     }
 
     
-    func sendCapturedDataToDatabase(databaseId: String) {
+    func sendCapturedDataToDatabase(databaseId: String, completion: @escaping (Bool) -> Void) {
         let url = URL(string: "https://api.notion.com/v1/pages")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -831,37 +834,69 @@ struct CaptureView: View {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("2021-08-16", forHTTPHeaderField: "Notion-Version")
 
+        let properties = constructProperties(from: capturedData)
         let body: [String: Any] = [
             "parent": ["database_id": databaseId],
-            "properties": constructProperties(from: capturedData)
+            "properties": properties
         ]
 
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        print("Raw captured data: \(capturedData)")
+        print("Constructed body: \(body)")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            print("Error serializing body: \(error)")
+            completion(false)
+            return
+        }
 
         URLSession.shared.dataTask(with: request) { data, response, error in
-            guard error == nil else {
-                print("Error: \(error!.localizedDescription)")
-                return
-            }
-            if let data = data {
-//                print(String(data: data, encoding: .utf8) ?? "No readable data received in response")
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("Error: \(error.localizedDescription)")
+                    completion(false)
+                    return
+                }
+                if let data = data, let responseString = String(data: data, encoding: .utf8) {
+                    print("Response from Notion API: \(responseString)")
+                }
+                if let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) {
+                    print("Data sent successfully")
+                    self.clearCapturedData()
+                    completion(true)
+                } else {
+                    print("Error: Unexpected response")
+                    completion(false)
+                }
             }
         }.resume()
     }
 
+    private func clearCapturedData() {
+        capturedData = [:]
+        committedTemplate = nil
+        capturedText = ""
+        activeFieldIndex = nil
+        filledFields = []
+        // Reset any other relevant state variables
+    }
+
     private func finishCapture() {
         if validateRequiredFields() {
-
             if let databaseId = committedTemplate?.databaseId {
-                sendCapturedDataToDatabase(databaseId: databaseId)
+                sendCapturedDataToDatabase(databaseId: databaseId) { success in
+                    if success {
+                        print("Capture completed and data sent successfully")
+                        // Optionally, update UI or perform any post-capture actions
+                    } else {
+                        print("Failed to send data to Notion")
+                        // Handle the error, perhaps by showing an alert to the user
+                    }
+                }
             } else {
                 print("Error: Database ID not found.")
             }
-
-            capturedData = [:]
-            committedTemplate = nil
-            capturedText = ""
-            // Additional logic to handle captured data
         } else {
             attemptedFinish = true
             highlightUnfilledRequiredFields()
@@ -1054,16 +1089,23 @@ struct CaptureView: View {
                     recognizedDateText = ""
                 }
             case "number":
-                capturedData[activeField.name] = newValue.filter { $0.isNumber }
+                // Only allow numeric input
+                let numericValue = newValue.filter { $0.isNumber || $0 == "." }
+                capturedData[activeField.name] = numericValue
             case "email":
-                capturedData[activeField.name] = isValidEmail(newValue) ? newValue : ""
+                // Store the email regardless of validation
+                capturedData[activeField.name] = newValue
+            case "url":
+                // Store the URL regardless of validation
+                capturedData[activeField.name] = newValue
             case "multi_select":
                 let inputOptions = newValue.components(separatedBy: ", ").filter { !$0.isEmpty }
                 selectedMultiOptions = inputOptions
             case "select", "status":
                 capturedData[activeField.name] = newValue
             default:
-                break
+                // For text and other types, store as is
+                capturedData[activeField.name] = newValue
             }
         }
     }
