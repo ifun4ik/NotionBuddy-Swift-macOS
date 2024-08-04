@@ -42,6 +42,26 @@ class CaptureWindowController: NSWindowController {
         }
         return nil
     }
+    
+    func positionWindowNearTop() {
+        guard let screen = NSScreen.main, let window = self.window else { return }
+
+        let screenFrame = screen.visibleFrame
+        let windowFrame = window.frame
+
+        // Calculate new origin
+        let newOriginX = (screenFrame.width - windowFrame.width) / 2 + screenFrame.minX
+        let newOriginY = screenFrame.maxY - windowFrame.height - 100 // 100 pixels from the top
+
+        let newOrigin = CGPoint(x: newOriginX, y: newOriginY)
+
+        window.setFrameTopLeftPoint(newOrigin)
+    }
+    
+    override func showWindow(_ sender: Any?) {
+        super.showWindow(sender)
+        positionWindowNearTop()
+    }
 
     func closeWindow() {
         self.window?.close()
