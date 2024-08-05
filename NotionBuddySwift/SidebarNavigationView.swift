@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarNavigationView: View {
     @ObservedObject var sessionManager: SessionManager
+    @Environment(\.managedObjectContext) private var managedObjectContext
     @State private var selection: NavigationItem? = .home
 
     enum NavigationItem: Hashable {
@@ -18,14 +19,13 @@ struct SidebarNavigationView: View {
                 .tag(NavigationItem.home)
 
                 if !sessionManager.accounts.isEmpty {
-                    NavigationLink(destination: TemplateNavigatorView(accessToken: sessionManager.accounts[sessionManager.selectedAccountIndex].accessToken)) {
+                    NavigationLink(destination: TemplateNavigatorView(managedObjectContext: managedObjectContext, sessionManager: sessionManager)) {
                         Label("Templates", systemImage: "doc.text")
                     }
                     .tag(NavigationItem.templates)
                 }
             }
             .listStyle(.sidebar)
-//            .listStyle(SidebarListStyle())
             .navigationTitle("Navigation")
 
             Text("Select a navigation item from the sidebar")
