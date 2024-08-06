@@ -14,12 +14,12 @@ struct NotionBuddyApp: App {
     var body: some Scene {
         WindowGroup {
             if sessionManager.isAuthenticated {
-                SidebarNavigationView(sessionManager: sessionManager)
-                    .frame(minWidth: 560, idealWidth: 560, minHeight: 612, idealHeight: 612)
+                MainView(sessionManager: sessionManager)
+                    .frame(width: 400, height: 640)
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
             } else {
                 LoginView(sessionManager: sessionManager)
-                    .frame(minWidth: 560, idealWidth: 560, minHeight: 612, idealHeight: 612)
+                    .frame(width: 400, height: 640)
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
             }
         }
@@ -28,6 +28,8 @@ struct NotionBuddyApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
+        .windowResizability(.contentSize)
+        .defaultSize(width: 400, height: 640)
     }
 }
 

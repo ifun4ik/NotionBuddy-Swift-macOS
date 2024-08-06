@@ -9,6 +9,13 @@ class SessionManager: ObservableObject {
     @Published var selectedAccountIndex: Int = 0
     @Published var isAuthenticated: Bool = false
     
+    var currentAccount: NotionAccount? {
+        guard !accounts.isEmpty, selectedAccountIndex >= 0, selectedAccountIndex < accounts.count else {
+            return nil
+        }
+        return accounts[selectedAccountIndex]
+    }
+    
     private let userDefaultsLogger = UserDefaultsLogger()
     var contextProvider = ContextProvider()
     private var cancellables = Set<AnyCancellable>()

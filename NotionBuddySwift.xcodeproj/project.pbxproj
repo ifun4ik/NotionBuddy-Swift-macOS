@@ -11,6 +11,14 @@
 		125B73C12C615CBD00CBBF81 /* MainViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73C02C615CBD00CBBF81 /* MainViewModel.swift */; };
 		125B73C32C615D7E00CBBF81 /* NotionAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73C22C615D7E00CBBF81 /* NotionAccount.swift */; };
 		125B73C72C6164B700CBBF81 /* TemplateNavigatorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73C62C6164B700CBBF81 /* TemplateNavigatorViewModel.swift */; };
+		125B73CA2C62192500CBBF81 /* AccountPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73C92C62192500CBBF81 /* AccountPickerView.swift */; };
+		125B73CC2C62194500CBBF81 /* AccountPickerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73CB2C62194500CBBF81 /* AccountPickerViewModel.swift */; };
+		125B73CE2C62195800CBBF81 /* TemplatesList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73CD2C62195800CBBF81 /* TemplatesList.swift */; };
+		125B73D02C62196500CBBF81 /* TemplatesListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73CF2C62196500CBBF81 /* TemplatesListViewModel.swift */; };
+		125B73D22C62197B00CBBF81 /* AddTemplateButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73D12C62197B00CBBF81 /* AddTemplateButton.swift */; };
+		125B73D42C62198D00CBBF81 /* AddTemplateButtonViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73D32C62198D00CBBF81 /* AddTemplateButtonViewModel.swift */; };
+		125B73D62C621B8E00CBBF81 /* TemplateSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73D52C621B8E00CBBF81 /* TemplateSection.swift */; };
+		125B73D82C621BC200CBBF81 /* TemplateRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73D72C621BC200CBBF81 /* TemplateRow.swift */; };
 		12E6B8F52C5EDF4B001E71CB /* HotKey in Frameworks */ = {isa = PBXBuildFile; productRef = 12E6B8F42C5EDF4B001E71CB /* HotKey */; };
 		12E6B8F72C5EDF5D001E71CB /* SwiftUIIntrospect in Frameworks */ = {isa = PBXBuildFile; productRef = 12E6B8F62C5EDF5D001E71CB /* SwiftUIIntrospect */; };
 		8D0873372A65CAE9002F54A6 /* TemplateCreatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0873362A65CAE9002F54A6 /* TemplateCreatorView.swift */; };
@@ -63,6 +71,14 @@
 		125B73C02C615CBD00CBBF81 /* MainViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewModel.swift; sourceTree = "<group>"; };
 		125B73C22C615D7E00CBBF81 /* NotionAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionAccount.swift; sourceTree = "<group>"; };
 		125B73C62C6164B700CBBF81 /* TemplateNavigatorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateNavigatorViewModel.swift; sourceTree = "<group>"; };
+		125B73C92C62192500CBBF81 /* AccountPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountPickerView.swift; sourceTree = "<group>"; };
+		125B73CB2C62194500CBBF81 /* AccountPickerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountPickerViewModel.swift; sourceTree = "<group>"; };
+		125B73CD2C62195800CBBF81 /* TemplatesList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatesList.swift; sourceTree = "<group>"; };
+		125B73CF2C62196500CBBF81 /* TemplatesListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatesListViewModel.swift; sourceTree = "<group>"; };
+		125B73D12C62197B00CBBF81 /* AddTemplateButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTemplateButton.swift; sourceTree = "<group>"; };
+		125B73D32C62198D00CBBF81 /* AddTemplateButtonViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTemplateButtonViewModel.swift; sourceTree = "<group>"; };
+		125B73D52C621B8E00CBBF81 /* TemplateSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateSection.swift; sourceTree = "<group>"; };
+		125B73D72C621BC200CBBF81 /* TemplateRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateRow.swift; sourceTree = "<group>"; };
 		8D0873362A65CAE9002F54A6 /* TemplateCreatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateCreatorView.swift; sourceTree = "<group>"; };
 		8D08733A2A65ED8A002F54A6 /* TemplateDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateDetailView.swift; sourceTree = "<group>"; };
 		8D1F71992A649C6100F5C29C /* UserDefaultsLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefaultsLogger.swift; sourceTree = "<group>"; };
@@ -192,6 +208,14 @@
 				125B73C52C61645C00CBBF81 /* Login View */,
 				125B73C42C61644B00CBBF81 /* Main View */,
 				125B73C22C615D7E00CBBF81 /* NotionAccount.swift */,
+				125B73C92C62192500CBBF81 /* AccountPickerView.swift */,
+				125B73CB2C62194500CBBF81 /* AccountPickerViewModel.swift */,
+				125B73D52C621B8E00CBBF81 /* TemplateSection.swift */,
+				125B73CD2C62195800CBBF81 /* TemplatesList.swift */,
+				125B73CF2C62196500CBBF81 /* TemplatesListViewModel.swift */,
+				125B73D72C621BC200CBBF81 /* TemplateRow.swift */,
+				125B73D12C62197B00CBBF81 /* AddTemplateButton.swift */,
+				125B73D32C62198D00CBBF81 /* AddTemplateButtonViewModel.swift */,
 				8D656A032A3C2F0E0065A725 /* WebView.swift */,
 				8D9435B72A3A462000F7CC62 /* Assets.xcassets */,
 				8D9435B92A3A462000F7CC62 /* NotionBuddySwift.entitlements */,
@@ -375,23 +399,31 @@
 				8DF13C332A63475A0030F889 /* MainView.swift in Sources */,
 				8DD1077D2AC4CC390077B935 /* CaptureWindowController.swift in Sources */,
 				8D9435AF2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift in Sources */,
+				125B73D82C621BC200CBBF81 /* TemplateRow.swift in Sources */,
 				8D9435B62A3A461F00F7CC62 /* LoginView.swift in Sources */,
 				8D0873372A65CAE9002F54A6 /* TemplateCreatorView.swift in Sources */,
 				125B73BF2C615B1400CBBF81 /* LoginViewModel.swift in Sources */,
+				125B73CA2C62192500CBBF81 /* AccountPickerView.swift in Sources */,
 				8DC5166A2A64934500FB72C8 /* SidebarNavigationView.swift in Sources */,
+				125B73D62C621B8E00CBBF81 /* TemplateSection.swift in Sources */,
 				125B73C32C615D7E00CBBF81 /* NotionAccount.swift in Sources */,
 				8DCDA9002A5B5C07007B54E5 /* DatabaseNavigatorView.swift in Sources */,
 				125B73C72C6164B700CBBF81 /* TemplateNavigatorViewModel.swift in Sources */,
 				8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */,
+				125B73D42C62198D00CBBF81 /* AddTemplateButtonViewModel.swift in Sources */,
 				8D08733B2A65ED8A002F54A6 /* TemplateDetailView.swift in Sources */,
+				125B73CC2C62194500CBBF81 /* AccountPickerViewModel.swift in Sources */,
 				8DD1077B2AC4CC140077B935 /* CustomWindow.swift in Sources */,
 				125B73C12C615CBD00CBBF81 /* MainViewModel.swift in Sources */,
+				125B73CE2C62195800CBBF81 /* TemplatesList.swift in Sources */,
 				8D2F263B2AC37E1400BF9364 /* CaptureView.swift in Sources */,
 				8D1F719A2A649C6100F5C29C /* UserDefaultsLogger.swift in Sources */,
 				8D8B95182A76964100DEDFFF /* EditTemplateView.swift in Sources */,
 				8D6207E72B074B0F00A01539 /* StringArrayTransformer.swift in Sources */,
 				8DEA959E2A7C49910007836F /* TemplateViewModel.swift in Sources */,
+				125B73D02C62196500CBBF81 /* TemplatesListViewModel.swift in Sources */,
 				8DF13C352A6349D00030F889 /* SessionManager.swift in Sources */,
+				125B73D22C62197B00CBBF81 /* AddTemplateButton.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -566,7 +598,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = gl1n.NotionBuddySwift;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -608,7 +640,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = gl1n.NotionBuddySwift;
 				PRODUCT_NAME = "$(TARGET_NAME)";

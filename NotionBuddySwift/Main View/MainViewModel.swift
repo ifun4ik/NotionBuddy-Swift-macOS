@@ -1,16 +1,20 @@
 import SwiftUI
 import Combine
+import CoreData
 
 class MainViewModel: ObservableObject {
     @Published var selectedAccountIndex: Int
     @Published var accounts: [NotionAccount] = []
+    @Published var templates: [Template] = []
     
     private let sessionManager: SessionManager
     private var cancellables = Set<AnyCancellable>()
+    let managedObjectContext: NSManagedObjectContext
     
     init(sessionManager: SessionManager) {
         self.sessionManager = sessionManager
         self.selectedAccountIndex = sessionManager.selectedAccountIndex
+        self.managedObjectContext = PersistenceController.shared.container.viewContext
         
         sessionManager.$accounts
             .assign(to: \.accounts, on: self)
@@ -31,6 +35,8 @@ class MainViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+        
+        fetchTemplates()
     }
     
     var currentAccount: NotionAccount? {
@@ -42,5 +48,14 @@ class MainViewModel: ObservableObject {
     
     func addNewAccount() {
         sessionManager.startWebAuthSession()
+    }
+    
+    func fetchTemplates() {
+        let fetchRequest: NSFetchRequest<Template> = Template.fetchRequest()
+        do {
+            templates = try managedObjectContext.fetch(fetchRequest)
+        } catch {
+            print("Failed to fetch templates: \(error)")
+        }
     }
 }
