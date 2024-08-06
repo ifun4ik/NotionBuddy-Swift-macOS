@@ -3,9 +3,13 @@ import SwiftUI
 extension Color {
     static let appBackground = Color("2C2C2C")
     static let cardBackground = Color.white
+    static let cardStroke = Color("E8E8E8")
     static let textPrimary = Color("464A60")
     static let textSecondary = Color("6D6C71")
     static let accentColor = Color("464A60")
+    static let accentDark = Color("1B1F33")
+    static let iconSecondary = Color("9E9DA5")
+    static let divider = Color("E4E4E4")
     static let iconBackground = Color("EAEAEA")
     static let shortcutBackground = Color("F0F0F0")
     static let templateTitleColor = Color("9B9B9B")

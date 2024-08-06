@@ -11,7 +11,6 @@
 		125B73C12C615CBD00CBBF81 /* MainViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73C02C615CBD00CBBF81 /* MainViewModel.swift */; };
 		125B73C32C615D7E00CBBF81 /* NotionAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73C22C615D7E00CBBF81 /* NotionAccount.swift */; };
 		12B608942C62B8CF0061A226 /* AccountPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B608932C62B8CF0061A226 /* AccountPickerView.swift */; };
-		12B608962C62B8EF0061A226 /* TemplateListHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B608952C62B8EF0061A226 /* TemplateListHeaderView.swift */; };
 		12B608982C62B9010061A226 /* TemplateListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B608972C62B9010061A226 /* TemplateListView.swift */; };
 		12B6089A2C62B90D0061A226 /* NoAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B608992C62B90D0061A226 /* NoAccountView.swift */; };
 		12B6089C2C62B9230061A226 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B6089B2C62B9230061A226 /* ColorExtensions.swift */; };
@@ -64,7 +63,6 @@
 		125B73C02C615CBD00CBBF81 /* MainViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewModel.swift; sourceTree = "<group>"; };
 		125B73C22C615D7E00CBBF81 /* NotionAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionAccount.swift; sourceTree = "<group>"; };
 		12B608932C62B8CF0061A226 /* AccountPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountPickerView.swift; sourceTree = "<group>"; };
-		12B608952C62B8EF0061A226 /* TemplateListHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateListHeaderView.swift; sourceTree = "<group>"; };
 		12B608972C62B9010061A226 /* TemplateListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateListView.swift; sourceTree = "<group>"; };
 		12B608992C62B90D0061A226 /* NoAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoAccountView.swift; sourceTree = "<group>"; };
 		12B6089B2C62B9230061A226 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
@@ -130,7 +128,6 @@
 			children = (
 				8DF13C322A63475A0030F889 /* MainView.swift */,
 				12B608932C62B8CF0061A226 /* AccountPickerView.swift */,
-				12B608952C62B8EF0061A226 /* TemplateListHeaderView.swift */,
 				12B608972C62B9010061A226 /* TemplateListView.swift */,
 				12B608992C62B90D0061A226 /* NoAccountView.swift */,
 				12B6089B2C62B9230061A226 /* ColorExtensions.swift */,
@@ -373,7 +370,6 @@
 				8D9435AF2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift in Sources */,
 				8D9435B62A3A461F00F7CC62 /* LoginView.swift in Sources */,
 				8D0873372A65CAE9002F54A6 /* TemplateCreatorView.swift in Sources */,
-				12B608962C62B8EF0061A226 /* TemplateListHeaderView.swift in Sources */,
 				125B73BF2C615B1400CBBF81 /* LoginViewModel.swift in Sources */,
 				125B73C32C615D7E00CBBF81 /* NotionAccount.swift in Sources */,
 				8DCDA9002A5B5C07007B54E5 /* DatabaseNavigatorView.swift in Sources */,

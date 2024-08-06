@@ -14,43 +14,60 @@ struct MainView: View {
         VStack(spacing: 16) {
             if let account = viewModel.currentAccount {
                 AccountPickerView(account: account)
-                    .background(Color.cardBackground)
-                    .cornerRadius(8)
                 
-                HStack {
-                    Text("Templates \(viewModel.templates.count)")
-                        .font(.custom("Onest-Medium", size: 20))
-                        .foregroundColor(.templateTitleColor)
-                    Spacer()
-                    Button(action: { showTemplateCreator = true }) {
-                        Image(systemName: "plus")
-                            .foregroundColor(.cardBackground)
-                            .frame(width: 32, height: 32)
-                            .background(Color.accentColor)
-                            .cornerRadius(8)
-                    }
-                }
-                
-                ScrollView {
-                    VStack(spacing: 8) {
-                        ForEach(Array(viewModel.templates.enumerated()), id: \.element.id) { index, template in
-                            TemplateRowView(template: template, index: index)
-                        }
-                    }
-                }
+                TemplateListView(templates: viewModel.templates, addNewTemplate: {
+                    showTemplateCreator = true
+                })
             } else {
                 NoAccountView(addNewAccount: viewModel.addNewAccount)
             }
         }
         .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        
         .sheet(isPresented: $showTemplateCreator) {
             DatabaseNavigatorView(accessToken: viewModel.currentAccount?.accessToken ?? "", shouldDismiss: $shouldDismiss)
                 .environment(\.managedObjectContext, managedObjectContext)
         }
-        .background(Color(red: 0.969, green: 0.969, blue: 0.969)) // Equivalent to #2C2C2C
-    
+        .background(Color(red: 0.968, green: 0.968, blue: 0.968)) // Equivalent to #2C2C2C
     }
 }
 
-
+// MARK: - Preview
+struct MainView_Previews: PreviewProvider {
+    static var previews: some View {
+        let mockSessionManager = SessionManager()
+        let mockViewModel = MainViewModel(sessionManager: mockSessionManager)
+        
+        // Set up mock data
+        mockSessionManager.accounts = [NotionAccount(
+            id: "1",
+            notionBuddyID: "123",
+            accessToken: "mock_token",
+            name: "John Doe",
+            email: "john@example.com",
+            avatarUrl: "https://example.com/avatar.jpg",
+            workspaceName: "My Workspace",
+            workspaceIcon: nil
+        )]
+        mockSessionManager.selectedAccountIndex = 0
+        
+        // Create a mock managed object context
+        let mockContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        
+        // Create mock templates
+        let mockTemplates = (0..<3).map { index -> Template in
+            let template = Template(context: mockContext)
+            template.name = "Template \(index + 1)"
+            template.databaseId = "db_\(index + 1)"
+            return template
+        }
+        
+        // Set the mock templates in the view model
+        mockViewModel.templates = mockTemplates
+        
+        return MainView(sessionManager: mockSessionManager)
+            .environmentObject(mockViewModel)
+            .environment(\.managedObjectContext, mockContext)
+    }
+}
