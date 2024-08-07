@@ -1,24 +1,31 @@
 import SwiftUI
 
 struct TemplateListView: View {
-    let templates: [Template]
+    @ObservedObject var viewModel: MainViewModel
     let addNewTemplate: () -> Void
     
     var body: some View {
         VStack(spacing: 0) {
-            TemplateListHeaderView(count: templates.count, addNewTemplate: addNewTemplate)
+            TemplateListHeaderView(count: viewModel.templates.count, addNewTemplate: addNewTemplate)
             
             Divider()
                 .overlay(Color.divider)
             
-            ForEach(Array(templates.enumerated()), id: \.element.id) { index, template in
-                TemplateRowView(template: template, index: index)
-                if index < templates.count - 1 {
+            ForEach(Array(viewModel.templates.enumerated()), id: \.element.id) { index, template in
+                TemplateRowView(template: template, index: index) {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        viewModel.deleteTemplate(template)
+                    }
+                }
+                if index < viewModel.templates.count - 1 {
                     Divider()
                 }
             }
+            .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .scale.combined(with: .opacity)))
+            
+            // Add this Spacer to create bottom padding
+//            Spacer().frame(height: 12)
         }
-        .padding(.horizontal, 16)
         .background(Color.cardBackground)
         .cornerRadius(12)
         .overlay(
@@ -27,6 +34,7 @@ struct TemplateListView: View {
         )
         .shadow(color: Color.black.opacity(0.04), radius: 2, x: 0, y: 1)
         .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.templates)
     }
 }
 
@@ -68,30 +76,64 @@ struct TemplateListHeaderView: View {
                 .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
                 .buttonStyle(PlainButtonStyle())
         }
-        .padding(.vertical, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
+        .padding(.horizontal, 16)
     }
 }
 
 struct TemplateRowView: View {
     let template: Template
     let index: Int
-    
+    @State private var isHovered = false
+    var onDelete: () -> Void
+
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
                 Color.iconBackground
                     .frame(width: 32, height: 32)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
-                Text(template.name?.prefix(1).uppercased() ?? "T")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.textPrimary)
+                
+                Group {
+                    if let databaseId = template.databaseId,
+                       let icon = DatabaseIconManager.shared.getIcon(for: databaseId) {
+                        switch icon {
+                        case .emoji(let emoji):
+                            Text(emoji)
+                                .font(.system(size: 16))
+                        case .url(let urlString):
+                            AsyncImage(url: URL(string: urlString)) { phase in
+                                switch phase {
+                                case .empty:
+                                    ProgressView()
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(width: 24, height: 24)
+                                case .failure(_):
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .foregroundColor(.red)
+                                @unknown default:
+                                    EmptyView()
+                                }
+                            }
+                            .frame(width: 24, height: 24)
+                        }
+                    } else {
+                        Text("📄")
+                            .font(.system(size: 16))
+                    }
+                }
+                .frame(width: 24, height: 24)
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(template.name ?? "Unnamed Template")
                     .font(.custom("Onest-Medium", size: 16))
                     .foregroundColor(.textPrimary)
-                Text(template.databaseId ?? "Unknown Database")
+                Text(template.databaseName ?? "Unknown Database")
                     .font(.custom("Onest-Regular", size: 12))
                     .foregroundColor(.textSecondary)
                     .lineLimit(1)
@@ -106,8 +148,23 @@ struct TemplateRowView: View {
                 .padding(.vertical, 4)
                 .background(Color.shortcutBackground)
                 .cornerRadius(4)
-        }
-        .padding(.vertical, 12)
     }
-}
-
+            .padding(.vertical, 9)
+            .padding(.horizontal, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isHovered ? Color.rowHover : Color.clear)
+                    .animation(.none, value: isHovered)
+            )
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                isHovered = hovering
+            }
+            .contextMenu {
+                Button(action: onDelete) {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: isHovered)
+        }
+    }

@@ -257,10 +257,12 @@ struct TemplateCreatorView: View {
         
         templateName = uniqueTemplateName
         let newTemplate = Template(context: viewContext)
-        newTemplate.id = UUID()
-        newTemplate.name = templateName
-        newTemplate.order = Int16(templateFields.count)
-        newTemplate.databaseId = database.id
+            newTemplate.id = UUID()
+            newTemplate.name = templateName
+            newTemplate.order = Int16(templateFields.count)
+            newTemplate.databaseId = database.id
+            newTemplate.databaseName = database.name
+
         
         for fieldViewData in templateFields {
             let newField = TemplateField(context: viewContext)

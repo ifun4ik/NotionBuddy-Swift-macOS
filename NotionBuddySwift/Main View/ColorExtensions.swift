@@ -4,6 +4,7 @@ extension Color {
     static let appBackground = Color("2C2C2C")
     static let cardBackground = Color.white
     static let cardStroke = Color("E8E8E8")
+    static let rowHover = Color("F2F2F2")
     static let textPrimary = Color("464A60")
     static let textSecondary = Color("6D6C71")
     static let accentColor = Color("464A60")

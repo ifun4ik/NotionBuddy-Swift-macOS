@@ -1,13 +1,13 @@
 import SwiftUI
 
 struct MainView: View {
-    @ObservedObject private var viewModel: MainViewModel
+    @StateObject private var viewModel: MainViewModel
     @Environment(\.managedObjectContext) private var managedObjectContext
     @State private var showTemplateCreator = false
     @State private var shouldDismiss = false
     
     init(sessionManager: SessionManager) {
-        _viewModel = ObservedObject(wrappedValue: MainViewModel(sessionManager: sessionManager))
+        _viewModel = StateObject(wrappedValue: MainViewModel(sessionManager: sessionManager))
     }
     
     var body: some View {
@@ -15,7 +15,7 @@ struct MainView: View {
             if let account = viewModel.currentAccount {
                 AccountPickerView(account: account)
                 
-                TemplateListView(templates: viewModel.templates, addNewTemplate: {
+                TemplateListView(viewModel: viewModel, addNewTemplate: {
                     showTemplateCreator = true
                 })
             } else {
@@ -24,12 +24,20 @@ struct MainView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        
         .sheet(isPresented: $showTemplateCreator) {
             DatabaseNavigatorView(accessToken: viewModel.currentAccount?.accessToken ?? "", shouldDismiss: $shouldDismiss)
                 .environment(\.managedObjectContext, managedObjectContext)
         }
-        .background(Color(red: 0.968, green: 0.968, blue: 0.968)) // Equivalent to #2C2C2C
+        .onChange(of: shouldDismiss) { newValue in
+            if newValue {
+                viewModel.fetchTemplates()
+                shouldDismiss = false
+            }
+        }
+        .background(Color(red: 0.968, green: 0.968, blue: 0.968))
+        .onAppear {
+            viewModel.fetchTemplates()
+        }
     }
 }
 

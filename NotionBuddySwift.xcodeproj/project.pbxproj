@@ -14,6 +14,8 @@
 		12B608982C62B9010061A226 /* TemplateListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B608972C62B9010061A226 /* TemplateListView.swift */; };
 		12B6089A2C62B90D0061A226 /* NoAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B608992C62B90D0061A226 /* NoAccountView.swift */; };
 		12B6089C2C62B9230061A226 /* ColorExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B6089B2C62B9230061A226 /* ColorExtensions.swift */; };
+		12BA490E2C63DE1300FCBA17 /* DatabaseIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BA490D2C63DE1300FCBA17 /* DatabaseIcon.swift */; };
+		12BA49102C63DE7800FCBA17 /* DatabaseIconManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BA490F2C63DE7800FCBA17 /* DatabaseIconManager.swift */; };
 		12E6B8F52C5EDF4B001E71CB /* HotKey in Frameworks */ = {isa = PBXBuildFile; productRef = 12E6B8F42C5EDF4B001E71CB /* HotKey */; };
 		12E6B8F72C5EDF5D001E71CB /* SwiftUIIntrospect in Frameworks */ = {isa = PBXBuildFile; productRef = 12E6B8F62C5EDF5D001E71CB /* SwiftUIIntrospect */; };
 		8D0873372A65CAE9002F54A6 /* TemplateCreatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0873362A65CAE9002F54A6 /* TemplateCreatorView.swift */; };
@@ -66,6 +68,8 @@
 		12B608972C62B9010061A226 /* TemplateListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateListView.swift; sourceTree = "<group>"; };
 		12B608992C62B90D0061A226 /* NoAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoAccountView.swift; sourceTree = "<group>"; };
 		12B6089B2C62B9230061A226 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
+		12BA490D2C63DE1300FCBA17 /* DatabaseIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseIcon.swift; sourceTree = "<group>"; };
+		12BA490F2C63DE7800FCBA17 /* DatabaseIconManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseIconManager.swift; sourceTree = "<group>"; };
 		8D0873362A65CAE9002F54A6 /* TemplateCreatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateCreatorView.swift; sourceTree = "<group>"; };
 		8D1F71992A649C6100F5C29C /* UserDefaultsLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefaultsLogger.swift; sourceTree = "<group>"; };
 		8D2F263A2AC37E1400BF9364 /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
@@ -132,6 +136,7 @@
 				12B608992C62B90D0061A226 /* NoAccountView.swift */,
 				12B6089B2C62B9230061A226 /* ColorExtensions.swift */,
 				125B73C02C615CBD00CBBF81 /* MainViewModel.swift */,
+				12BA490D2C63DE1300FCBA17 /* DatabaseIcon.swift */,
 			);
 			path = "Main View";
 			sourceTree = "<group>";
@@ -180,6 +185,7 @@
 				8DF13C342A6349D00030F889 /* SessionManager.swift */,
 				8D1F71992A649C6100F5C29C /* UserDefaultsLogger.swift */,
 				8DCDA8FF2A5B5C07007B54E5 /* DatabaseNavigatorView.swift */,
+				12BA490F2C63DE7800FCBA17 /* DatabaseIconManager.swift */,
 				8D0873362A65CAE9002F54A6 /* TemplateCreatorView.swift */,
 				125B73C52C61645C00CBBF81 /* Login View */,
 				125B73C42C61644B00CBBF81 /* Main View */,
@@ -372,6 +378,7 @@
 				8D0873372A65CAE9002F54A6 /* TemplateCreatorView.swift in Sources */,
 				125B73BF2C615B1400CBBF81 /* LoginViewModel.swift in Sources */,
 				125B73C32C615D7E00CBBF81 /* NotionAccount.swift in Sources */,
+				12BA490E2C63DE1300FCBA17 /* DatabaseIcon.swift in Sources */,
 				8DCDA9002A5B5C07007B54E5 /* DatabaseNavigatorView.swift in Sources */,
 				8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */,
 				8DD1077B2AC4CC140077B935 /* CustomWindow.swift in Sources */,
@@ -381,6 +388,7 @@
 				12B6089A2C62B90D0061A226 /* NoAccountView.swift in Sources */,
 				8D8B95182A76964100DEDFFF /* EditTemplateView.swift in Sources */,
 				8D6207E72B074B0F00A01539 /* StringArrayTransformer.swift in Sources */,
+				12BA49102C63DE7800FCBA17 /* DatabaseIconManager.swift in Sources */,
 				8DEA959E2A7C49910007836F /* TemplateViewModel.swift in Sources */,
 				8DF13C352A6349D00030F889 /* SessionManager.swift in Sources */,
 				12B6089C2C62B9230061A226 /* ColorExtensions.swift in Sources */,
