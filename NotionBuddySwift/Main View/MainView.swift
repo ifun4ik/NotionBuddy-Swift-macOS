@@ -4,7 +4,6 @@ struct MainView: View {
     @StateObject private var viewModel: MainViewModel
     @Environment(\.managedObjectContext) private var managedObjectContext
     @State private var showTemplateCreator = false
-    @State private var shouldDismiss = false
     
     init(sessionManager: SessionManager) {
         _viewModel = StateObject(wrappedValue: MainViewModel(sessionManager: sessionManager))
@@ -25,14 +24,13 @@ struct MainView: View {
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .sheet(isPresented: $showTemplateCreator) {
-            DatabaseNavigatorView(accessToken: viewModel.currentAccount?.accessToken ?? "", shouldDismiss: $shouldDismiss)
-                .environment(\.managedObjectContext, managedObjectContext)
-        }
-        .onChange(of: shouldDismiss) { newValue in
-            if newValue {
+            DatabaseNavigatorView(accessToken: viewModel.currentAccount?.accessToken ?? "", onDismiss: {
+                showTemplateCreator = false
                 viewModel.fetchTemplates()
-                shouldDismiss = false
-            }
+            })
+            .environment(\.managedObjectContext, managedObjectContext)
+            .frame(width: 352, height: 400)
+            .fixedSize()
         }
         .background(Color(red: 0.968, green: 0.968, blue: 0.968))
         .onAppear {

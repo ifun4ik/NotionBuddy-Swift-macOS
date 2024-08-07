@@ -82,10 +82,14 @@ struct TemplateListHeaderView: View {
     }
 }
 
+import SwiftUI
+import AppKit
+
 struct TemplateRowView: View {
     let template: Template
     let index: Int
     @State private var isHovered = false
+    @State private var icon: DatabaseIcon?
     var onDelete: () -> Void
 
     var body: some View {
@@ -96,8 +100,7 @@ struct TemplateRowView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 
                 Group {
-                    if let databaseId = template.databaseId,
-                       let icon = DatabaseIconManager.shared.getIcon(for: databaseId) {
+                    if let icon = icon {
                         switch icon {
                         case .emoji(let emoji):
                             Text(emoji)
@@ -111,7 +114,6 @@ struct TemplateRowView: View {
                                     image
                                         .resizable()
                                         .aspectRatio(contentMode: .fit)
-                                        .frame(width: 24, height: 24)
                                 case .failure(_):
                                     Image(systemName: "exclamationmark.triangle")
                                         .foregroundColor(.red)
@@ -119,7 +121,15 @@ struct TemplateRowView: View {
                                     EmptyView()
                                 }
                             }
-                            .frame(width: 24, height: 24)
+                        case .custom(let imageData):
+                            if let nsImage = NSImage(data: imageData) {
+                                Image(nsImage: nsImage)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                            } else {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundColor(.red)
+                            }
                         }
                     } else {
                         Text("📄")
@@ -148,23 +158,28 @@ struct TemplateRowView: View {
                 .padding(.vertical, 4)
                 .background(Color.shortcutBackground)
                 .cornerRadius(4)
-    }
-            .padding(.vertical, 9)
-            .padding(.horizontal, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isHovered ? Color.rowHover : Color.clear)
-                    .animation(.none, value: isHovered)
-            )
-            .contentShape(Rectangle())
-            .onHover { hovering in
-                isHovered = hovering
-            }
-            .contextMenu {
-                Button(action: onDelete) {
-                    Label("Delete", systemImage: "trash")
-                }
-            }
-            .animation(.easeInOut(duration: 0.2), value: isHovered)
         }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isHovered ? Color.rowHover : Color.clear)
+                .animation(.none, value: isHovered)
+        )
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .contextMenu {
+            Button(action: onDelete) {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .onAppear {
+            if let databaseId = template.databaseId {
+                icon = DatabaseIconManager.shared.getIcon(for: databaseId)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isHovered)
     }
+}

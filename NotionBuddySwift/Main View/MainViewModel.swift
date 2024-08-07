@@ -108,10 +108,19 @@ class MainViewModel: ObservableObject {
                 if let icon = json["icon"] as? [String: Any] {
                     if icon["type"] as? String == "emoji" {
                         databaseIcon = .emoji(icon["emoji"] as? String ?? "📄")
-                    } else if icon["type"] as? String == "external",
+                    } else if icon["type"] as? String == "external" || icon["type"] as? String == "file",
                               let external = icon["external"] as? [String: Any],
-                              let url = external["url"] as? String {
-                        databaseIcon = .url(url)
+                              let urlString = external["url"] as? String {
+                        // Fetch the image data
+                        if let imageUrl = URL(string: urlString) {
+                            URLSession.shared.dataTask(with: imageUrl) { imageData, _, _ in
+                                if let imageData = imageData {
+                                    databaseIcon = .custom(imageData)
+                                }
+                                completion(title, databaseIcon)
+                            }.resume()
+                            return // Exit here as we're calling completion in the nested dataTask
+                        }
                     }
                 }
                 

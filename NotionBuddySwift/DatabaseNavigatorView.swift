@@ -65,40 +65,32 @@ struct Database: Identifiable, Decodable {
         let status: Status?
         
         struct Status: Decodable {
-                let options: [Option]
-                let groups: [Group]
-                
-                struct Option: Decodable {
-                    let id: String
-                    let name: String
-                    let color: String
-                }
-                
-                struct Group: Decodable {
-                    let id: String
-                    let name: String
-                    let color: String
-                    let option_ids: [String]
-                }
+            let options: [Option]
+            let groups: [Group]
+            
+            struct Option: Decodable {
+                let id: String
+                let name: String
+                let color: String
             }
-
-        struct People: Decodable {}
-
-        struct Checkbox: Decodable {}
-
-        struct Number: Decodable {
-            let format: String
+            
+            struct Group: Decodable {
+                let id: String
+                let name: String
+                let color: String
+                let option_ids: [String]
+            }
         }
 
+        struct People: Decodable {}
+        struct Checkbox: Decodable {}
+        struct Number: Decodable { let format: String }
         struct RichText: Decodable {}
-
         struct Title: Decodable {}
-
         struct Url: Decodable {}
 
         struct SelectOptions: Decodable {
             let options: [Option]
-
             struct Option: Decodable {
                 let id: String
                 let name: String
@@ -108,7 +100,6 @@ struct Database: Identifiable, Decodable {
 
         struct MultiSelectOptions: Decodable {
             let options: [Option]
-            
             struct Option: Decodable {
                 let id: String
                 let name: String
@@ -116,7 +107,6 @@ struct Database: Identifiable, Decodable {
             }
         }
     }
-
 }
 
 struct DatabasesResponse: Decodable {
@@ -125,22 +115,22 @@ struct DatabasesResponse: Decodable {
 
 struct DatabaseNavigatorView: View {
     var accessToken: String
+    var onDismiss: () -> Void
     @State private var searchResults: [SearchResult] = []
     @State private var searchQuery: String = ""
     @State private var isLoading: Bool = false
     @State private var selectedDatabase: Database? = nil
     @State private var showTemplateCreator = false
     @Environment(\.presentationMode) var presentationMode
-    @Binding var shouldDismiss: Bool
     @Environment(\.managedObjectContext) private var managedObjectContext
-
+    
     var body: some View {
         VStack {
             Text("Pick a database")
                 .font(.title)
                 .fontWeight(.bold)
                 .padding(.top, 16)
-
+            
             HStack(spacing: 8) {
                 TextField("Search for a database...", text: $searchQuery, onCommit: {
                     self.search(query: searchQuery)
@@ -152,7 +142,7 @@ struct DatabaseNavigatorView: View {
                 }
             }
             .padding([.all], 8)
-
+            
             if isLoading {
                 ProgressView()
             } else if searchResults.isEmpty {
@@ -176,13 +166,14 @@ struct DatabaseNavigatorView: View {
                     }
                 }
             }
-
+            
             Text("Don't hesitate using search, even if you see nothing here 😉")
                 .italic()
                 .foregroundColor(.gray)
                 .font(.caption)
                 .padding(.all, 16)
         }
+        .frame(width: 352, height: 400)
         .onAppear {
             SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
             fetchDatabases()
@@ -190,14 +181,12 @@ struct DatabaseNavigatorView: View {
         }
         .sheet(isPresented: $showTemplateCreator) {
             if let selectedDatabase = selectedDatabase {
-                TemplateCreatorView(database: selectedDatabase, shouldDismiss: self.$shouldDismiss)
-                    .environment(\.managedObjectContext, self.managedObjectContext)
-                    .frame(width: 500, height: 400)
-            }
-        }
-        .onChange(of: shouldDismiss) { newValue in
-            if newValue {
-                self.presentationMode.wrappedValue.dismiss()
+                TemplateCreatorView(database: selectedDatabase, onSave: {
+                    showTemplateCreator = false
+                    onDismiss()
+                })
+                .environment(\.managedObjectContext, self.managedObjectContext)
+                .frame(width: 500, height: 400)
             }
         }
     }
@@ -323,8 +312,6 @@ struct DatabaseNavigatorView: View {
             }
         }
     }
-
-
 }
 
 struct DatabaseListItemView: View {

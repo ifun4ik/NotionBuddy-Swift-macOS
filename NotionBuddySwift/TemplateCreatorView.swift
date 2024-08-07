@@ -18,7 +18,7 @@ class TemplateFieldViewData: ObservableObject, Identifiable {
     @Published var defaultValue: String
     @Published var defaultValues: Set<String> = []
     @Published var order: Int16
-    @Published var selectedValues: Set<String> = [] 
+    @Published var selectedValues: Set<String> = []
     var options: [String]? = nil
     
     init(
@@ -132,13 +132,13 @@ struct FieldRow: View {
 }
 
 struct TemplateCreatorView: View {
-    @State private var showAlert = false
     var database: Database
+    var onSave: () -> Void
     @State private var templateName: String = ""
     @State var templateFields: [TemplateFieldViewData] = []
-    @Binding var shouldDismiss: Bool
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.presentationMode) var presentationMode
+    @State private var showAlert = false
     @State private var existingNames: [String] = []
     
     var body: some View {
@@ -170,7 +170,6 @@ struct TemplateCreatorView: View {
             }
             .buttonStyle(PlainButtonStyle())
             .disabled(!canSave())
-            .help(templateName.isEmpty ? "Template name is required" : "")
         }
         .padding(.vertical, 20)
         .padding(.horizontal, 40)
@@ -180,14 +179,17 @@ struct TemplateCreatorView: View {
             existingNames = fetchExistingNames()
             createFieldViewData(from: database)
         }
+        .alert(isPresented: $showAlert) {
+            Alert(title: Text("Error"), message: Text("A template with this name already exists."), dismissButton: .default(Text("OK")))
+        }
     }
     
     func fetchExistingNames() -> [String] {
         let fetchRequest: NSFetchRequest<Template> = Template.fetchRequest()
         do {
-            return try viewContext.fetch(fetchRequest).map { $0.name! }
-        }
-        catch {
+            return try viewContext.fetch(fetchRequest).compactMap { $0.name }
+        } catch {
+            print("Failed to fetch existing names: \(error)")
             return []
         }
     }
@@ -226,12 +228,9 @@ struct TemplateCreatorView: View {
                 }
             }
 
-            // Append the .skip priority fields at the end
             templateFields.append(contentsOf: skipPriorityFields)
         }
     }
-
-
     
     func move(from source: IndexSet, to destination: Int) {
         templateFields.move(fromOffsets: source, toOffset: destination)
@@ -245,25 +244,14 @@ struct TemplateCreatorView: View {
             showAlert = true
             return
         }
-        // Fetching existing template names
-        let existingTemplateNames = fetchExistingNames()
-        // Checking for unique name and appending suffix if needed
-        var uniqueTemplateName = templateName
-        var counter = 2
-        while existingTemplateNames.contains(uniqueTemplateName) {
-            uniqueTemplateName = "\(templateName)-\(counter)"
-            counter += 1
-        }
         
-        templateName = uniqueTemplateName
         let newTemplate = Template(context: viewContext)
-            newTemplate.id = UUID()
-            newTemplate.name = templateName
-            newTemplate.order = Int16(templateFields.count)
-            newTemplate.databaseId = database.id
-            newTemplate.databaseName = database.name
+        newTemplate.id = UUID()
+        newTemplate.name = templateName
+        newTemplate.order = Int16(templateFields.count)
+        newTemplate.databaseId = database.id
+        newTemplate.databaseName = database.name
 
-        
         for fieldViewData in templateFields {
             let newField = TemplateField(context: viewContext)
             newField.id = fieldViewData.id
@@ -294,56 +282,18 @@ struct TemplateCreatorView: View {
             newTemplate.addToFields(newField)
         }
         
-        DispatchQueue.global()
-            .async {
-                do {
-                    try viewContext.save()
-                    DispatchQueue.main.async {
-                        self.presentationMode.wrappedValue.dismiss()
-                        self.shouldDismiss = true
-                    }
-                }
-                catch {
-                    DispatchQueue.main.async {
-                        self.showAlert = true
-                    }
-                }
-            }
-    }
-    
-    func logTemplates() {
-        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Template")
         do {
-            if let results = try viewContext.fetch(fetchRequest) as? [Template] {
-                for template in results {
-                    print("Template Name: \(template.name ?? "")")
-                    print("Order: \(template.order)")
-                    print("Database ID: \(template.databaseId ?? "")")
-                    print("Fields:")
-                    if let fields = template.fields as? Set<TemplateField> {
-                        for field in fields {
-                            print("  Name: \(field.name ?? "")")
-                            print(
-                                "  Default Value: \(field.defaultValue ?? "")"
-                            )
-                            print("  Order: \(field.order)")
-                            print("  Kind: \(field.kind ?? "")")
-                        }
-                    }
-                }
-            }
-        }
-        
-        catch let error as NSError {
-            print("Could not fetch templates. \(error), \(error.userInfo)")
+            try viewContext.save()
+            onSave()
+            presentationMode.wrappedValue.dismiss()
+        } catch {
+            print("Failed to save template: \(error)")
+            showAlert = true
         }
     }
     
     func canSave() -> Bool {
-        if templateName.isEmpty || !allMandatoryFieldsHaveDefaultValue() {
-            return false
-        }
-        return true
+        return !templateName.isEmpty && allMandatoryFieldsHaveDefaultValue()
     }
     
     func allMandatoryFieldsHaveDefaultValue() -> Bool {
@@ -355,7 +305,6 @@ struct TemplateCreatorView: View {
         return true
     }
 }
-
 
 struct MultiSelectView: View {
     let options: [String]
