@@ -12,7 +12,7 @@ struct TemplateListView: View {
                 .overlay(Color.divider)
             
             ForEach(Array(viewModel.templates.enumerated()), id: \.element.id) { index, template in
-                TemplateRowView(template: template, index: index) {
+                TemplateRowView(template: template, index: index, enableHover: true) {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         viewModel.deleteTemplate(template)
                     }
@@ -88,6 +88,7 @@ import AppKit
 struct TemplateRowView: View {
     let template: Template
     let index: Int
+    let enableHover: Bool
     @State private var isHovered = false
     @State private var icon: DatabaseIcon?
     var onDelete: () -> Void
@@ -151,24 +152,23 @@ struct TemplateRowView: View {
             
             Spacer()
             
-            Text("⌘\(index + 1)")
-                .font(.custom("Onest-Medium", size: 14))
-                .foregroundColor(.textSecondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.shortcutBackground)
-                .cornerRadius(4)
+//            Text("⌘\(index + 1)")
+//                .font(.custom("Onest-Medium", size: 14))
+//                .foregroundColor(.textSecondary)
+//                .padding(.horizontal, 8)
+//                .padding(.vertical, 4)
+//                .background(Color.shortcutBackground)
+//                .cornerRadius(4)
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isHovered ? Color.rowHover : Color.clear)
-                .animation(.none, value: isHovered)
+                .fill(backgroundColor)
         )
         .contentShape(Rectangle())
         .onHover { hovering in
-            isHovered = hovering
+            isHovered = enableHover ? hovering : false
         }
         .contextMenu {
             Button(action: onDelete) {
@@ -180,6 +180,13 @@ struct TemplateRowView: View {
                 icon = DatabaseIconManager.shared.getIcon(for: databaseId)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: isHovered)
+    }
+    
+    private var backgroundColor: Color {
+        if enableHover && isHovered {
+            return Color.rowHover.opacity(0.5)
+        } else {
+            return Color.clear
+        }
     }
 }

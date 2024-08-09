@@ -45,7 +45,7 @@ class TemplateFieldViewData: ObservableObject, Identifiable {
     }
 }
 
-struct FieldRow: View {
+private struct FieldRow: View {
     @ObservedObject var field: TemplateFieldViewData
     @State private var showMultiSelect = false
 

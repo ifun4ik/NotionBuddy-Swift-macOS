@@ -127,6 +127,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		120FFD1F2C667C4E00EFF63A /* CaptureView */ = {
+			isa = PBXGroup;
+			children = (
+				8DD1077C2AC4CC390077B935 /* CaptureWindowController.swift */,
+				8D2F263A2AC37E1400BF9364 /* CaptureView.swift */,
+			);
+			path = CaptureView;
+			sourceTree = "<group>";
+		};
 		125B73C42C61644B00CBBF81 /* Main View */ = {
 			isa = PBXGroup;
 			children = (
@@ -177,8 +186,7 @@
 				8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */,
 				8D54B6082AC2990700B9B01F /* GlobalShortcutManager.swift */,
 				8DD1077A2AC4CC140077B935 /* CustomWindow.swift */,
-				8DD1077C2AC4CC390077B935 /* CaptureWindowController.swift */,
-				8D2F263A2AC37E1400BF9364 /* CaptureView.swift */,
+				120FFD1F2C667C4E00EFF63A /* CaptureView */,
 				8D6207E62B074B0E00A01539 /* StringArrayTransformer.swift */,
 				8D8B95172A76964100DEDFFF /* EditTemplateView.swift */,
 				8DEA959D2A7C49910007836F /* TemplateViewModel.swift */,
@@ -566,7 +574,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = gl1n.NotionBuddySwift;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -608,7 +616,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = gl1n.NotionBuddySwift;
 				PRODUCT_NAME = "$(TARGET_NAME)";

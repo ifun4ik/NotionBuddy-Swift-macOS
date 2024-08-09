@@ -229,12 +229,15 @@ struct CaptureView: View {
                         .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
                 } else {
                     ForEach(Array(displayTemplates.enumerated()), id: \.element) { index, template in
-                        HStack {
-                            Text(template.name ?? "No template name")
-                                .font(Font.custom("Onest", size: 16).weight(.semibold))
-                                .foregroundColor(Constants.textPrimary)
+                        TemplateRowView(template: template, index: index, enableHover: false){
+                            
                         }
-                        .padding(.horizontal, 16)
+//                        HStack {
+//                            Text(template.name ?? "No template name")
+//                                .font(Font.custom("Onest", size: 16).weight(.semibold))
+//                                .foregroundColor(Constants.textPrimary)
+//                        }
+//                        .padding(.horizontal, 16)
                         .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
                         .background(index == selectedIndex ? Constants.bgPrimaryHover : Color.clear)
                         .onTapGesture {

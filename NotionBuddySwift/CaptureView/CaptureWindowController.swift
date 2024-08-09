@@ -51,7 +51,7 @@ class CaptureWindowController: NSWindowController {
 
         // Calculate new origin
         let newOriginX = (screenFrame.width - windowFrame.width) / 2 + screenFrame.minX
-        let newOriginY = screenFrame.maxY - windowFrame.height - 100 // 100 pixels from the top
+        let newOriginY = screenFrame.maxY - windowFrame.height + 64 // 100 pixels from the top
 
         let newOrigin = CGPoint(x: newOriginX, y: newOriginY)
 
