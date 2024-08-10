@@ -12,6 +12,7 @@ extension Color {
     static let iconSecondary = Color("9E9DA5")
     static let divider = Color("E4E4E4")
     static let iconBackground = Color("EAEAEA")
+    static let bgSecondary = Color("EAEAEA")
     static let shortcutBackground = Color("F0F0F0")
     static let templateTitleColor = Color("9B9B9B")
 
