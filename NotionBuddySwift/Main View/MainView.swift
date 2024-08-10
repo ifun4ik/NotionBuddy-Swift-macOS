@@ -29,7 +29,7 @@ struct MainView: View {
                 viewModel.fetchTemplates()
             })
             .environment(\.managedObjectContext, managedObjectContext)
-            .frame(width: 352, height: 400)
+            .frame(width: 352, height: 380)
             .fixedSize()
         }
         .background(Color(red: 0.968, green: 0.968, blue: 0.968))
