@@ -2,17 +2,19 @@ import SwiftUI
 
 struct MainView: View {
     @StateObject private var viewModel: MainViewModel
+    @ObservedObject var sessionManager: SessionManager
     @Environment(\.managedObjectContext) private var managedObjectContext
     @State private var showTemplateCreator = false
     
     init(sessionManager: SessionManager) {
+        self._sessionManager = ObservedObject(wrappedValue: sessionManager)
         _viewModel = StateObject(wrappedValue: MainViewModel(sessionManager: sessionManager))
     }
     
     var body: some View {
         VStack(spacing: 16) {
-            if let account = viewModel.currentAccount {
-                AccountPickerView(account: account)
+            if !sessionManager.accounts.isEmpty {
+                AccountPickerView(sessionManager: sessionManager)
                 
                 TemplateListView(viewModel: viewModel, addNewTemplate: {
                     showTemplateCreator = true
