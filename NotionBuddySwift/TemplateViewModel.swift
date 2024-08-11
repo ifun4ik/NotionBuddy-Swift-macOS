@@ -10,6 +10,8 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
     @Published var defaultValue: String
     @Published var order: Int16
     @Published var options: [String]? = nil
+    @Published var selectedValues: Set<String> = []
+
 
     init(templateField: TemplateField) {
         self.kind = templateField.kind ?? ""
@@ -22,12 +24,34 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
         checkFieldOptionsConflicts(with: templateField)
 
         // Check if there's a default value, if not and it's a picker type, set the first option
-        if let options = self.options, !options.isEmpty {
-            // If default value is empty, set it to the first option
-            if self.defaultValue.isEmpty {
-                self.defaultValue = options[0]
+        if let optionsData = templateField.options as? Data {
+            do {
+                // Attempt to unarchive the data
+                if let optionsArray = try NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(optionsData) as? [String] {
+                    self.options = optionsArray
+                } else {
+                    print("Failed to unarchive options data")
+                    self.options = []
+                }
+            } catch {
+                print("Error unarchiving options data: \(error)")
+                self.options = []
+            }
+        } else {
+            self.options = []
+        }
+        
+        if kind == "multi_select", let defaultValue = templateField.defaultValue {
+            if let jsonData = defaultValue.data(using: .utf8) {
+                do {
+                    let decodedValues = try JSONDecoder().decode([String].self, from: jsonData)
+                    self.selectedValues = Set(decodedValues)
+                } catch {
+                    print("Failed to decode selected multi_select values: \(error)")
+                }
             }
         }
+        
     }
 
         // Check for field options conflicts

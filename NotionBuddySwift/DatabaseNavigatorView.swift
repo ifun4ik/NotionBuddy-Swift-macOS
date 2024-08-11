@@ -55,7 +55,7 @@ struct Database: Identifiable, Decodable {
         let type: String
         let name: String
         let select: SelectOptions?
-        let multiSelect: MultiSelectOptions?
+        let multi_select: MultiSelectOptions?
         let people: People?
         let checkbox: Checkbox?
         let number: Number?
@@ -65,40 +65,32 @@ struct Database: Identifiable, Decodable {
         let status: Status?
         
         struct Status: Decodable {
-                let options: [Option]
-                let groups: [Group]
-                
-                struct Option: Decodable {
-                    let id: String
-                    let name: String
-                    let color: String
-                }
-                
-                struct Group: Decodable {
-                    let id: String
-                    let name: String
-                    let color: String
-                    let option_ids: [String]
-                }
+            let options: [Option]
+            let groups: [Group]
+            
+            struct Option: Decodable {
+                let id: String
+                let name: String
+                let color: String
             }
-
-        struct People: Decodable {}
-
-        struct Checkbox: Decodable {}
-
-        struct Number: Decodable {
-            let format: String
+            
+            struct Group: Decodable {
+                let id: String
+                let name: String
+                let color: String
+                let option_ids: [String]
+            }
         }
 
+        struct People: Decodable {}
+        struct Checkbox: Decodable {}
+        struct Number: Decodable { let format: String }
         struct RichText: Decodable {}
-
         struct Title: Decodable {}
-
         struct Url: Decodable {}
 
         struct SelectOptions: Decodable {
             let options: [Option]
-
             struct Option: Decodable {
                 let id: String
                 let name: String
@@ -108,7 +100,6 @@ struct Database: Identifiable, Decodable {
 
         struct MultiSelectOptions: Decodable {
             let options: [Option]
-
             struct Option: Decodable {
                 let id: String
                 let name: String
@@ -116,7 +107,6 @@ struct Database: Identifiable, Decodable {
             }
         }
     }
-
 }
 
 struct DatabasesResponse: Decodable {
@@ -125,47 +115,62 @@ struct DatabasesResponse: Decodable {
 
 struct DatabaseNavigatorView: View {
     var accessToken: String
+    var onDismiss: () -> Void
     @State private var searchResults: [SearchResult] = []
     @State private var searchQuery: String = ""
     @State private var isLoading: Bool = false
     @State private var selectedDatabase: Database? = nil
     @State private var showTemplateCreator = false
     @Environment(\.presentationMode) var presentationMode
-    @Binding var shouldDismiss: Bool
     @Environment(\.managedObjectContext) private var managedObjectContext
-
+    
     var body: some View {
-        VStack {
-            Text("Pick a database")
-                .font(.title)
-                .fontWeight(.bold)
-                .padding(.top, 16)
-
-            HStack(spacing: 8) {
-                TextField("Search for a database...", text: $searchQuery, onCommit: {
-                    self.search(query: searchQuery)
-                })
-                Button(action: {
-                    self.search(query: searchQuery)
-                }) {
-                    Text("Search")
+        VStack(spacing: 16) {
+            HStack {
+                Text("Pick a database")
+                    .font(.custom("Onest-Medium", size: 20))
+                    .foregroundColor(.textPrimary)
+                
+                Spacer()
+                
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.textPrimary)
+                    
+                    TextField("Search", text: $searchQuery)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .font(.custom("Onest-Regular", size: 14))
+                        .foregroundColor(.textPrimary)
                 }
+                .frame(width: 136, height: 32)
+                .padding(.horizontal, 10)
+                .background(Color(.white))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.cardStroke, lineWidth: 1)
+                )
             }
-            .padding([.all], 8)
-
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            
+            Divider()
+                .overlay(Color.divider)
+            
             if isLoading {
                 ProgressView()
+                    .frame(width: 352, height: 300)
             } else if searchResults.isEmpty {
                 Text("No results found.")
                     .foregroundColor(.gray)
+                    .frame(width: 352, height: 300)
             } else {
                 ScrollView {
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         ForEach(searchResults) { result in
                             switch result {
                             case .database(let database):
                                 DatabaseListItemView(database: database)
-                                    .background(selectedDatabase?.id == database.id ? Color.accentColor : Color.clear)
+                                    .background(selectedDatabase?.id == database.id ? Color.accentColor.opacity(0.1) : Color.clear)
                                     .onTapGesture {
                                         self.selectedDatabase = database
                                         self.logProperties(database: database)
@@ -175,29 +180,27 @@ struct DatabaseNavigatorView: View {
                         }
                     }
                 }
+                .frame(width: 352, height: 300)
             }
-
-            Text("Don't hesitate using search, even if you see nothing here 😉")
-                .italic()
-                .foregroundColor(.gray)
-                .font(.caption)
-                .padding(.all, 16)
         }
+//        .frame(width: 352, height: 300)
+        .background(Color.white)
         .onAppear {
             SDImageCodersManager.shared.addCoder(SDImageSVGCoder.shared)
             fetchDatabases()
-            self.search(query: "")
+        }
+        .onChange(of: searchQuery) { newValue in
+            search(query: newValue)
         }
         .sheet(isPresented: $showTemplateCreator) {
             if let selectedDatabase = selectedDatabase {
-                TemplateCreatorView(database: selectedDatabase, shouldDismiss: self.$shouldDismiss)
-                    .environment(\.managedObjectContext, self.managedObjectContext)
-                    .frame(width: 500, height: 400)
-            }
-        }
-        .onChange(of: shouldDismiss) { newValue in
-            if newValue {
-                self.presentationMode.wrappedValue.dismiss()
+                TemplateCreatorView(database: selectedDatabase, onSave: {
+                    showTemplateCreator = false
+                    onDismiss()
+                })
+                .environment(\.managedObjectContext, self.managedObjectContext)
+                .frame(width: 352, height: 480)
+                .background(Color.white)
             }
         }
     }
@@ -295,8 +298,16 @@ struct DatabaseNavigatorView: View {
                         print("Option Color: \(option.color)")
                     }
                 }
-                
-                // Add this check
+
+                if let multi_select = property.multi_select {
+                    print("MultiSelect Options:")
+                    for option in multi_select.options {
+                        print("Option Name: \(option.name)")
+                        print("Option ID: \(option.id)")
+                        print("Option Color: \(option.color)")
+                    }
+                }
+
                 if let status = property.status {
                     print("Status Options:")
                     for option in status.options {
@@ -309,42 +320,48 @@ struct DatabaseNavigatorView: View {
                         print("Group Name: \(group.name)")
                         print("Group ID: \(group.id)")
                         print("Group Color: \(group.color)")
-                        print("Group Option IDs: \(group.option_ids)")
+                        print("Group Option IDs: \(group.option_ids.joined(separator: ", "))")
                     }
                 }
             }
         }
     }
-
 }
 
 struct DatabaseListItemView: View {
     let database: Database
     
     var body: some View {
-        VStack(alignment: .leading) {
-            HStack(spacing: 8) {
+        HStack(spacing: 12) {
+            Group {
                 if let iconURL = database.iconURL {
                     WebImage(url: iconURL)
                         .resizable()
-                        .frame(width: 24, height: 24)
+                        .placeholder {
+                            Color.gray.opacity(0.2)
+                        }
+                        .indicator(.activity)
+                        .transition(.fade(duration: 0.5))
+                        .frame(width: 20, height: 20)
                 } else if let emoji = database.icon?.emoji {
                     Text(emoji)
-                        .font(.system(size: 24))
+                        .font(.custom("Onest-Medium", size: 16))
                 } else {
-                    Text("🙈")
-                        .font(.system(size: 24))
+                    Image(systemName: "doc.text")
+                        .foregroundColor(.gray)
                 }
-                
-                Text(database.name)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                
-                Spacer()
             }
-            .padding([.all], 8)
+            .frame(width: 32, height: 32)
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(6)
             
-            Divider()
+            Text(database.name)
+                .font(.custom("Onest-Medium", size: 16))
+                .foregroundColor(.textPrimary)
+            
+            Spacer()
         }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
     }
 }
