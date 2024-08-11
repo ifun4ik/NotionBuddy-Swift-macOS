@@ -229,7 +229,8 @@ struct CaptureView: View {
                         .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
                 } else {
                     ForEach(Array(displayTemplates.enumerated()), id: \.element) { index, template in
-                        TemplateRowView(template: template, index: index, enableHover: false){
+                        TemplateRowView(template: template, index: index, enableHover: false, enableEdit: false,
+                                        enableDelete: false){
                             
                         }
 //                        HStack {

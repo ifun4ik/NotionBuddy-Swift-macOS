@@ -1,37 +1,249 @@
 import SwiftUI
-import SDWebImageSwiftUI
-import SDWebImageSVGCoder
 import CoreData
-
-
-extension Array where Element == String {
-    func toNSData() -> NSData? {
-        do {
-            let data = try JSONSerialization.data(withJSONObject: self, options: [])
-            return data as NSData
-        } catch {
-            print("Failed to convert array to NSData: \(error)")
-            return nil
-        }
-    }
-}
 
 struct EditTemplateView: View {
     @StateObject var viewModel: TemplateViewModel
     @Environment(\.managedObjectContext) private var managedObjectContext
-    @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
-
-    @State private var database: Database?
+    @Environment(\.presentationMode) var presentationMode
     @State private var conflicts: [String] = []
-    @State private var fetchedProps: [String : Any] = [:]
+    @State private var fetchedProps: [String: Any] = [:]
     @State private var forceRefresh: Bool = false
-    
     @State private var draggedItem: EditableTemplateFieldViewData?
-    @State private var position: CGFloat = 0
-    @State private var currentHoveredIndex: Int? = nil
-    @State private var dropPosition: Int? = nil 
+    @State private var draggedOffset: CGFloat = 0
 
-    /// Compares the fetched Notion database properties with the existing template
+    var accessToken: String
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Title bar
+            HStack {
+                Button(action: {
+                    presentationMode.wrappedValue.dismiss()
+                }) {
+                    Image(systemName: "chevron.left")
+                        .foregroundColor(.textPrimary)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .frame(width: 24, height: 24)
+                
+                Text("Edit Template")
+                    .font(.custom("Onest-Medium", size: 20))
+                    .foregroundColor(.textPrimary)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+            .background(Color.white)
+            
+            Divider()
+                .overlay(Color.divider)
+            
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Template Name
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Template Name")
+                            .font(.custom("Onest-Medium", size: 14))
+                            .foregroundColor(.textSecondary)
+                        
+                        TextField("Enter template name", text: $viewModel.templateName)
+                            .textFieldStyle(PlainTextFieldStyle())
+                            .font(.custom("Onest-Regular", size: 16))
+                            .foregroundColor(.textPrimary)
+                            .padding(10)
+                            .background(Color.white)
+                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.cardStroke, lineWidth: 1)
+                            )
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    
+                    // Template Fields
+                    ForEach(viewModel.templateFields) { field in
+                        EditFieldRow(field: field, json: fetchedProps)
+                            .opacity(draggedItem?.id == field.id ? 0.5 : 1.0)
+                            .offset(y: draggedItem?.id == field.id ? draggedOffset : 0)
+                            .zIndex(draggedItem?.id == field.id ? 1 : 0)
+                            .gesture(
+                                DragGesture()
+                                    .onChanged { value in
+                                        if draggedItem == nil {
+                                            draggedItem = field
+                                        }
+                                        draggedOffset = value.translation.height
+                                    }
+                                    .onEnded { value in
+                                        if let draggedItem = draggedItem,
+                                           let fromIndex = viewModel.templateFields.firstIndex(where: { $0.id == draggedItem.id }),
+                                           let toIndex = getDestinationIndex(for: value.predictedEndTranslation.height, fromIndex: fromIndex) {
+                                            viewModel.templateFields.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex)
+                                        }
+                                        withAnimation {
+                                            self.draggedItem = nil
+                                            draggedOffset = 0
+                                        }
+                                    }
+                            )
+                    }
+                }
+                .padding(.bottom, 16)
+            }
+            
+            // Conflicts warning
+            if !conflicts.isEmpty {
+                Text("Conflicts detected. Reset template?")
+                    .font(.custom("Onest-Medium", size: 14))
+                    .foregroundColor(.red)
+                    .padding(.horizontal, 16)
+                
+                Button(action: resetTemplateToNotion) {
+                    Text("Reset Template")
+                        .font(.custom("Onest-Medium", size: 16))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.red)
+                        .cornerRadius(6)
+                }
+                .padding(.horizontal, 16)
+            }
+            
+            // Update Template Button
+            Button(action: updateTemplate) {
+                Text("Update Template")
+                    .font(.custom("Onest-Medium", size: 16))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(canSave() ? Color.accentColor : Color.gray)
+                    .cornerRadius(6)
+            }
+            .padding(16)
+            .disabled(!canSave())
+        }
+        .frame(width: 352, height: 480)
+        .background(Color.white)
+        .onAppear {
+            fetchDatabase(gottaCheck: true)
+        }
+    }
+
+    private func getDestinationIndex(for offsetY: CGFloat, fromIndex: Int) -> Int? {
+        let rowHeight: CGFloat = 100 // Approximate height of a FieldRow
+        let moveThreshold: CGFloat = rowHeight / 2
+        let predictedIndex = fromIndex + Int(offsetY / rowHeight)
+        
+        if abs(offsetY).truncatingRemainder(dividingBy: rowHeight) > moveThreshold {
+            return offsetY > 0 ? min(predictedIndex + 1, viewModel.templateFields.count - 1) : max(predictedIndex - 1, 0)
+        } else {
+            return min(max(predictedIndex, 0), viewModel.templateFields.count - 1)
+        }
+    }
+
+    func canSave() -> Bool {
+        return !viewModel.templateName.isEmpty && allMandatoryFieldsHaveDefaultValue()
+    }
+
+    func allMandatoryFieldsHaveDefaultValue() -> Bool {
+        for field in viewModel.templateFields {
+            if field.priority == "mandatory" && field.defaultValue.isEmpty {
+                return false
+            }
+        }
+        return true
+    }
+
+    func updateTemplate() {
+        viewModel.template.name = viewModel.templateName
+        viewModel.template.order = Int16(viewModel.templateFields.count)
+
+        if let oldFields = viewModel.template.fields as? Set<TemplateField> {
+            for oldField in oldFields {
+                managedObjectContext.delete(oldField)
+            }
+        }
+
+        for (index, fieldViewData) in viewModel.templateFields.enumerated() {
+            let newField = TemplateField(context: managedObjectContext)
+            newField.id = fieldViewData.id
+            newField.name = fieldViewData.name
+            newField.order = Int16(index)
+            newField.kind = fieldViewData.kind
+            newField.priority = fieldViewData.priority
+
+            if fieldViewData.kind == "multi_select" {
+                if let jsonData = try? JSONEncoder().encode(fieldViewData.selectedValues) {
+                    newField.defaultValue = String(data: jsonData, encoding: .utf8) ?? ""
+                }
+            } else {
+                newField.defaultValue = fieldViewData.defaultValue
+            }
+
+            if let options = fieldViewData.options {
+                do {
+                    let data = try NSKeyedArchiver.archivedData(withRootObject: options, requiringSecureCoding: false) as NSData
+                    newField.options = data
+                } catch {
+                    print("Failed to archive options: \(error)")
+                }
+            }
+
+            viewModel.template.addToFields(newField)
+        }
+
+        do {
+            try managedObjectContext.save()
+            self.presentationMode.wrappedValue.dismiss()
+        } catch {
+            print("Failed to update template: \(error)")
+        }
+    }
+
+    func fetchDatabase(gottaCheck: Bool) {
+        guard let databaseId = viewModel.template.databaseId,
+              let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)") else {
+            print("Invalid URL or database ID.")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.addValue("2021-05-13", forHTTPHeaderField: "Notion-Version")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("Failed to fetch database properties. Error: \(error.localizedDescription)")
+                return
+            }
+
+            guard let data = data else {
+                print("Failed to retrieve database properties.")
+                return
+            }
+
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                   let properties = json["properties"] as? [String: Any] {
+                    DispatchQueue.main.async {
+                        if gottaCheck {
+                            self.compareFetchedDatabaseWithTemplate(fetchedData: properties, withFields: viewModel.templateFields)
+                        }
+                        self.fetchedProps = properties
+                        self.fetchOptions(fetchedData: properties)
+                    }
+                }
+            } catch {
+                print("Unexpected error: \(error).")
+            }
+        }.resume()
+    }
+
     func compareFetchedDatabaseWithTemplate(fetchedData: [String: Any], withFields fields: [EditableTemplateFieldViewData]) {
         // Clear the conflicts
         conflicts.removeAll()
@@ -41,7 +253,7 @@ struct EditTemplateView: View {
             if let templateField = viewModel.templateFields.first(where: { $0.name == key }) {
                 if let fetchedDict = fetchedValue as? [String: Any] {
                     if templateField.kind != (fetchedDict["type"] as? String) {
-                        conflicts.append("Kind mismatch for \(key). Template: \(templateField.kind ?? "Unknown"), Fetched: \(String(describing: fetchedDict["type"]))")
+                        conflicts.append("Kind mismatch for \(key). Template: \(templateField.kind), Fetched: \(String(describing: fetchedDict["type"]))")
                     }
                     if let fetchedOptions = fetchedDict["options"] as? [[String: Any]] {
                         let templateOptions = templateField.options ?? []
@@ -70,7 +282,7 @@ struct EditTemplateView: View {
         
         print("Conflicts found: \(conflicts)")
     }
-    
+
     func resetTemplateToNotion() {
         // 1. Delete old fields from the managedObjectContext
         if let oldFields = viewModel.template.fields as? Set<TemplateField> {
@@ -139,7 +351,6 @@ struct EditTemplateView: View {
             }
         }
         
-        
         // 4. Update the viewModel.templateFields with our new fields
         viewModel.templateFields = newTemplateFields
 
@@ -157,388 +368,150 @@ struct EditTemplateView: View {
         }
     }
 
-
-    var accessToken: String
-
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("Template Name:")
-                    .font(.headline)
-                TextField("Enter a name", text: $viewModel.templateName)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .padding(.leading, 8)
-            }
-            .padding(.horizontal, 16)
-
-            Divider()
-
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(viewModel.templateFields.enumerated()), id: \.element.id) { index, field in
-                        EditFieldRow(field: field, json: fetchedProps)
-                            .background(self.backgroundForIndex(index: index))
-                            .cornerRadius(8)
-                            .padding(.horizontal)
-                            .frame(idealWidth: .infinity)
-                            .onDrag {
-                                self.draggedItem = field
-                                return NSItemProvider(object: "\(field.id)" as NSString)
-                            }
-                            .onDrop(of: [kUTTypeText as String], delegate: DropViewDelegate(item: field, items: $viewModel.templateFields, draggedItem: $draggedItem, position: $position, hoveredIndex: $currentHoveredIndex, dropPosition: $dropPosition))
-                            .overlay(VStack {
-                                if dropPosition == index {
-                                    Divider().background(Color.blue).padding([.leading, .trailing])
-                                }
-                                Spacer()
-                            })
-                    }
-                }
-                .padding(.vertical, 12)
-            }
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(8)
-            .frame(idealHeight: 500)
-
-            Button(action: updateTemplate) {
-                Text("Update Template")
-                    .foregroundColor(.white)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 40)
-                    .background(Color.blue)
-                    .cornerRadius(8)
-            }
-            .buttonStyle(PlainButtonStyle())
-            .disabled(!canSave())
-            .help(viewModel.templateName.isEmpty ? "Template name is required" : "")
-            
-            if !conflicts.isEmpty {
-                Button(action: resetTemplateToNotion) {
-                    Text("Reset Template")
-                        .foregroundColor(.white)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 40)
-                        .background(Color.red)
-                        .cornerRadius(8)
-                }
-                .buttonStyle(PlainButtonStyle())
-                
-            }
-
-            if !conflicts.isEmpty {
-                Text("Conflicts Detected:")
-                    .font(.headline)
-                ForEach(conflicts, id: \.self) { conflict in
-                    Text(conflict)
-                }
-            }
-        }
-        .id(forceRefresh)
-        .onAppear {
-            fetchDatabase(gottaCheck: true)
-            sortTemplateFields()
-        }
-        .padding(.vertical, 20)
-        .padding(.horizontal, 40)
-        .frame(width: 500)
-        .background(Color(NSColor.windowBackgroundColor))
-    }
-
-    func move(from source: IndexSet, to destination: Int) {
-        viewModel.templateFields.move(fromOffsets: source, toOffset: destination)
-        for (index, field) in viewModel.templateFields.enumerated() {
-            field.order = Int16(index)
-        }
-        saveContext()
-    }
-
-    func updateTemplate() {
-        viewModel.template.name = viewModel.templateName
-        viewModel.template.order = Int16(viewModel.templateFields.count)
-
-        if let oldFields = viewModel.template.fields as? Set<TemplateField> {
-            for oldField in oldFields {
-                managedObjectContext.delete(oldField)
-            }
-        }
-
-        for (index, fieldViewData) in viewModel.templateFields.enumerated() {
-            let newField = TemplateField(context: managedObjectContext)
-            newField.id = fieldViewData.id
-            newField.name = fieldViewData.name
-            newField.order = Int16(index)
-            newField.kind = fieldViewData.kind
-            newField.priority = fieldViewData.priority
-
-            // Handle multi-select fields by storing selected values as a JSON string
-            if fieldViewData.kind == "multi_select" {
-                if let jsonData = try? JSONEncoder().encode(fieldViewData.selectedValues) {
-                    newField.defaultValue = String(data: jsonData, encoding: .utf8) ?? ""
-                }
-            } else {
-                newField.defaultValue = fieldViewData.defaultValue
-            }
-
-            viewModel.template.addToFields(newField)
-        }
-
-        do {
-            try managedObjectContext.save()
-            self.presentationMode.wrappedValue.dismiss()
-        } catch {
-            print("Failed to update template: \(error)")
-        }
-    }
-
-
-    func canSave() -> Bool {
-        if viewModel.templateName.isEmpty || !allMandatoryFieldsHaveDefaultValue() {
-            return false
-        }
-        return true
-    }
-
-    func allMandatoryFieldsHaveDefaultValue() -> Bool {
-        for field in viewModel.templateFields {
-            if field.kind == "mandatory" && field.defaultValue.isEmpty {
-                return false
-            }
-        }
-        return true
-    }
-
-    func fetchDatabase(gottaCheck: Bool) {
-        guard let databaseId = viewModel.template.databaseId,
-              let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)") else {
-            print("Invalid URL or database ID.")
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.addValue("2021-05-13", forHTTPHeaderField: "Notion-Version")
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("Failed to fetch database properties. Error: \(error.localizedDescription)")
-                return
-            }
-
-            guard let data = data else {
-                print("Failed to retrieve database properties.")
-                return
-            }
-
-            do {
-                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-                   let properties = json["properties"] as? [String: Any] {
-                    DispatchQueue.main.async {
-                        if gottaCheck{
-                            self.compareFetchedDatabaseWithTemplate(fetchedData: properties, withFields: viewModel.templateFields)
-                        }
-                        self.fetchedProps = properties
-                        self.fetchOptions(fetchedData: properties)
-                    }
-                }
-            } catch {
-                print("Unexpected error: \(error).")
-            }
-        }.resume()
-    }
-    
     func fetchOptions(fetchedData: [String: Any]) {
-        for (key, fetchedValue) in fetchedData {
-            if let templateField = viewModel.templateFields.first(where: { $0.name == key }) {
-                if let fetchedDict = fetchedValue as? [String: Any] {
-                    // Handle select fields
-                    if templateField.kind == "select", let selectDict = fetchedDict["select"] as? [String: Any],
-                       let options = selectDict["options"] as? [[String: Any]] {
-                        let optionNames = options.compactMap { $0["name"] as? String }
-                        DispatchQueue.main.async {
-                            templateField.options = optionNames
-                            templateField.defaultValue = optionNames.first ?? ""
+            for (key, fetchedValue) in fetchedData {
+                if let templateField = viewModel.templateFields.first(where: { $0.name == key }) {
+                    if let fetchedDict = fetchedValue as? [String: Any] {
+                        // Handle select fields
+                        if templateField.kind == "select", let selectDict = fetchedDict["select"] as? [String: Any],
+                           let options = selectDict["options"] as? [[String: Any]] {
+                            let optionNames = options.compactMap { $0["name"] as? String }
+                            DispatchQueue.main.async {
+                                templateField.options = optionNames
+                                templateField.defaultValue = optionNames.first ?? ""
+                            }
                         }
-                    }
 
-                    // Handle multi_select fields
-                    if templateField.kind == "multi_select", let multiSelectDict = fetchedDict["multi_select"] as? [String: Any],
-                       let options = multiSelectDict["options"] as? [[String: Any]] {
-                        let optionNames = options.compactMap { $0["name"] as? String }
-                        DispatchQueue.main.async {
-                            templateField.options = optionNames
+                        // Handle multi_select fields
+                        if templateField.kind == "multi_select", let multiSelectDict = fetchedDict["multi_select"] as? [String: Any],
+                           let options = multiSelectDict["options"] as? [[String: Any]] {
+                            let optionNames = options.compactMap { $0["name"] as? String }
+                            DispatchQueue.main.async {
+                                templateField.options = optionNames
+                            }
                         }
-                    }
 
-                    // Handle status fields
-                    if templateField.kind == "status", let statusDict = fetchedDict["status"] as? [String: Any],
-                       let options = statusDict["options"] as? [[String: Any]] {
-                        let optionNames = options.compactMap { $0["name"] as? String }
-                        DispatchQueue.main.async {
-                            templateField.options = optionNames
-                            templateField.defaultValue = optionNames.first ?? ""
+                        // Handle status fields
+                        if templateField.kind == "status", let statusDict = fetchedDict["status"] as? [String: Any],
+                           let options = statusDict["options"] as? [[String: Any]] {
+                            let optionNames = options.compactMap { $0["name"] as? String }
+                            DispatchQueue.main.async {
+                                templateField.options = optionNames
+                                templateField.defaultValue = optionNames.first ?? ""
+                            }
                         }
                     }
-                } else {
-                    print("Fetched value is not a dictionary for key \(key)")
                 }
             }
         }
     }
 
-    
-    func backgroundForIndex(index: Int) -> Color {
-        return index % 2 == 0 ? Color(NSColor.windowBackgroundColor) : Color(NSColor.controlBackgroundColor)
-    }
+    struct EditFieldRow: View {
+        @ObservedObject var field: EditableTemplateFieldViewData
+        @State var json: [String: Any]
+        @State private var showMultiSelect = false
 
-    
-    func sortTemplateFields() {
-        viewModel.templateFields.sort(by: { $0.order < $1.order })
-    }
-    
-    func saveContext() {
-        do {
-            try managedObjectContext.save()
-        } catch {
-            print("Failed to save context after reordering: \(error)")
-        }
-    }
-
-}
-
-struct EditFieldRow: View {
-    @ObservedObject var field: EditableTemplateFieldViewData
-    @State var json: [String: Any]
-    @State private var showMultiSelect = false
-
-    var body: some View {
-        HStack {
-            Image(systemName: "line.horizontal.3")
-                .foregroundColor(.gray)
-                .padding(.trailing, 10)
-            
-            VStack(alignment: .leading) {
-                HStack {
-                    Text("Field Name:")
-                        .font(.headline)
-                    Text(field.name)
-                        .font(.body)
-                }
-                HStack {
-                    Text("Field Type:")
-                        .font(.headline)
-                    Text(field.kind)
-                        .font(.body)
-                }
+        var body: some View {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "line.horizontal.3")
+                    .foregroundColor(.gray)
+                    .frame(width: 20, height: 20)
+                    .padding(.top, 8)
                 
-                Picker("Field Priority", selection: $field.priority) {
-                    ForEach(FieldPriority.allCases) { priority in
-                        Text(priority.rawValue.capitalized).tag(priority)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text(field.name)
+                            .font(.custom("Onest-Medium", size: 16))
+                            .foregroundColor(.textPrimary)
+                        
+                        Spacer()
+                        
+                        Text(field.kind.capitalized)
+                            .font(.custom("Onest-Medium", size: 12))
+                            .foregroundColor(.textSecondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(Color.cardStroke, lineWidth: 1)
+                            )
                     }
+                    
+                    CustomSegmentedPicker(
+                        options: FieldPriority.allCases.map { $0.rawValue.capitalized },
+                        selection: Binding(
+                            get: { field.priority.capitalized },
+                            set: { newValue in
+                                field.priority = newValue.lowercased()
+                            }
+                        )
+                    )
+                    
+                    defaultValueView
                 }
-                .pickerStyle(.segmented)
-                .disabled(field.priority == FieldPriority.skip.rawValue)
+            }
+            .padding(16)
+            .background(Color.white)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.cardStroke, lineWidth: 1)
+            )
+            .padding(.horizontal, 16)
+        }
+        
+        @ViewBuilder
+        var defaultValueView: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Default Value")
+                    .font(.custom("Onest-Medium", size: 14))
+                    .foregroundColor(.textSecondary)
                 
                 switch field.kind {
                 case "checkbox":
-                    Toggle(isOn: Binding(get: {
-                        Bool(field.defaultValue) ?? false
-                    }, set: {
-                        field.defaultValue = String($0)
-                    })) {
+                    Toggle(isOn: Binding(
+                        get: { Bool(field.defaultValue) ?? false },
+                        set: { field.defaultValue = String($0) }
+                    )) {
                         Text("Default Value")
                     }
-                    .disabled(field.priority == FieldPriority.skip.rawValue)
+                    .disabled(field.priority == "skip")
                 case "date":
-                    DatePicker("", selection: Binding(get: {
-                        Date()
-                    }, set: {
-                        field.defaultValue = "\($0)"
-                    }))
-                    .labelsHidden()
-                    .disabled(field.priority == FieldPriority.skip.rawValue)
-                case "email", "phone_number", "rich_text", "title", "url":
-                    TextField("Default Value", text: $field.defaultValue)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .disabled(field.priority == FieldPriority.skip.rawValue)
+                    CustomDatePicker(
+                        selection: Binding(
+                            get: { ISO8601DateFormatter().date(from: field.defaultValue) ?? Date() },
+                            set: { field.defaultValue = ISO8601DateFormatter().string(from: $0) }
+                        ),
+                        disabled: field.priority == "skip"
+                    )
                 case "select", "status":
-                    if let jsonOptions = json[field.name] as? [String: Any], let options = jsonOptions["options"] as? [[String: Any]] {
-                        let optionNames = options.compactMap { $0["name"] as? String }
-                        ForEach(optionNames, id: \.self) { option in
-                            Text("Option: \(option)")
-                        }
-                        Picker("Default Value", selection: $field.defaultValue) {
-                            ForEach(field.options ?? [], id: \.self) { option in
-                                Text(option).tag(option)
-                            }
-                        }
-                        .disabled(field.priority == FieldPriority.skip.rawValue)
-                    } else {
-                        Picker("Default Value", selection: $field.defaultValue) {
-                            ForEach(field.options ?? [], id: \.self) { option in
-                                Text(option).tag(option)
-                            }
-                        }
-                        .disabled(field.priority == FieldPriority.skip.rawValue)
-                    }
+                    CustomDropdown(selection: $field.defaultValue, options: field.options ?? [])
+                        .disabled(field.priority == "skip")
                 case "multi_select":
-                    Button(action: { showMultiSelect.toggle() }) {
-                        HStack {
-                            Text("Select Options: \(field.selectedValues.joined(separator: ", "))")
-                            Spacer()
-                            Image(systemName: "chevron.right")
+                    MultiSelectView(options: field.options ?? [], selectedOptions: Binding(
+                        get: { Set(field.selectedValues) },
+                        set: { newValues in
+                            field.selectedValues = newValues
+                            field.defaultValue = Array(newValues).joined(separator: ", ")
                         }
-                    }
-                    .sheet(isPresented: $showMultiSelect) {
-                        MultiSelectView(options: field.options ?? [], selectedOptions: $field.selectedValues)
-                    }
+                    )) .frame(width: .infinity)
+                    .disabled(field.priority == "skip")
                 default:
                     TextField("Default Value", text: $field.defaultValue)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .disabled(field.priority == FieldPriority.skip.rawValue)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.cardStroke, lineWidth: 1)
+                        )
+                        .foregroundColor(.textPrimary)
+                        .font(.custom("Onest-Regular", size: 16))
+                        .disabled(field.priority == "skip")
                 }
             }
-        }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 16)
-    }
-}
-
-
-struct DropViewDelegate: DropDelegate {
-    let item: EditableTemplateFieldViewData
-    @Binding var items: [EditableTemplateFieldViewData]
-    @Binding var draggedItem: EditableTemplateFieldViewData?
-    @Binding var position: CGFloat
-    @Binding var hoveredIndex: Int?
-    @Binding var dropPosition: Int?  // Added to compute the drop position
-
-    func performDrop(info: DropInfo) -> Bool {
-        if let fromIndex = items.firstIndex(where: { $0.id == draggedItem?.id }),
-           let toIndex = items.firstIndex(where: { $0.id == item.id }) {
-            withAnimation {
-                items.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex)
-            }
-        }
-        draggedItem = nil
-        hoveredIndex = nil
-        dropPosition = nil  // Resetting the drop position
-        return true
-    }
-
-    func dropEntered(info: DropInfo) {
-        if let _ = info.itemProviders(for: [kUTTypeText as String]).first {
-            let toIndex = items.firstIndex { $0.id == item.id }!
-            dropPosition = toIndex
+            .padding(.vertical, 8)
         }
     }
-
-
-    func dropExited(info: DropInfo) {
-        dropPosition = nil
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        return DropProposal(operation: .move)
-    }
-}

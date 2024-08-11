@@ -3,6 +3,8 @@ import SwiftUI
 struct TemplateListView: View {
     @ObservedObject var viewModel: MainViewModel
     let addNewTemplate: () -> Void
+    @State private var selectedTemplate: Template?
+    @State private var showEditTemplate = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -12,19 +14,27 @@ struct TemplateListView: View {
                 .overlay(Color.divider)
             
             ForEach(Array(viewModel.templates.enumerated()), id: \.element.id) { index, template in
-                TemplateRowView(template: template, index: index, enableHover: true) {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        viewModel.deleteTemplate(template)
+                TemplateRowView(
+                    template: template,
+                    index: index,
+                    enableHover: true,
+                    enableEdit: true,
+                    enableDelete: true,
+                    onEdit: {
+                        selectedTemplate = template
+                        showEditTemplate = true
+                    },
+                    onDelete: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            viewModel.deleteTemplate(template)
+                        }
                     }
-                }
+                )
                 if index < viewModel.templates.count - 1 {
                     Divider()
                 }
             }
             .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .scale.combined(with: .opacity)))
-            
-            // Add this Spacer to create bottom padding
-//            Spacer().frame(height: 12)
         }
         .background(Color.cardBackground)
         .cornerRadius(12)
@@ -35,6 +45,10 @@ struct TemplateListView: View {
         .shadow(color: Color.black.opacity(0.04), radius: 2, x: 0, y: 1)
         .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.templates)
+        .sheet(item: $selectedTemplate) { template in
+            EditTemplateView(viewModel: TemplateViewModel(template: template), accessToken: viewModel.sessionManager.currentAccount?.accessToken ?? "")
+                .environment(\.managedObjectContext, viewModel.managedObjectContext)
+        }
     }
 }
 
@@ -89,9 +103,15 @@ struct TemplateRowView: View {
     let template: Template
     let index: Int
     let enableHover: Bool
+    let enableEdit: Bool
+    let enableDelete: Bool
     @State private var isHovered = false
     @State private var icon: DatabaseIcon?
-    var onDelete: () -> Void
+    var onEdit: (() -> Void)?
+    var onDelete: (() -> Void)?
+    
+    @State private var selectedTemplate: Template?
+    @State private var showEditTemplate = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -151,6 +171,34 @@ struct TemplateRowView: View {
             }
             
             Spacer()
+            HStack(spacing: 8) {
+                if enableEdit {
+                    Button(action: {
+                        DispatchQueue.main.async {
+                            selectedTemplate = template
+                            showEditTemplate = true
+                            onEdit?()
+                        }
+                    }) {
+                        Image(systemName: "pencil.line")
+                            .foregroundColor(.textSecondary)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .frame(width: 24, height: 24)
+                }
+                
+                if enableDelete {
+                    Button(action: {
+                        onDelete?()
+                    }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.textSecondary)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .frame(width: 24, height: 24)
+                }
+            }
+            
             
 //            Text("⌘\(index + 1)")
 //                .font(.custom("Onest-Medium", size: 14))
@@ -169,11 +217,6 @@ struct TemplateRowView: View {
         .contentShape(Rectangle())
         .onHover { hovering in
             isHovered = enableHover ? hovering : false
-        }
-        .contextMenu {
-            Button(action: onDelete) {
-                Label("Delete", systemImage: "trash")
-            }
         }
         .onAppear {
             if let databaseId = template.databaseId {

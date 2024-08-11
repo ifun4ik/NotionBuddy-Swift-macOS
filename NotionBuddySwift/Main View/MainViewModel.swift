@@ -7,7 +7,7 @@ class MainViewModel: ObservableObject {
     @Published var accounts: [NotionAccount] = []
     @Published var templates: [Template] = []
     
-    private let sessionManager: SessionManager
+    let sessionManager: SessionManager
     private var cancellables = Set<AnyCancellable>()
     let managedObjectContext: NSManagedObjectContext
     

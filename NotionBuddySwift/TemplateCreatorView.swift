@@ -135,7 +135,7 @@ struct FieldRow: View {
                         field.selectedValues = newValues
                         field.defaultValue = Array(newValues).joined(separator: ", ")
                     }
-                ))
+                )) .frame(width: .infinity)
                 .disabled(field.priority == .skip)
             default:
                 TextField("Default Value", text: $field.defaultValue)
