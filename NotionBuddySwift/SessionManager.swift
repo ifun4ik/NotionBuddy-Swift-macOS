@@ -6,8 +6,19 @@ import SwiftUI
 class SessionManager: ObservableObject {
     private var webAuthSession: ASWebAuthenticationSession?
     @Published var accounts: [NotionAccount] = []
-    @Published var selectedAccountIndex: Int = 0
     @Published var isAuthenticated: Bool = false
+    @Published var _selectedAccountIndex: Int = -1
+        
+    var selectedAccountIndex: Int {
+        get {
+            return _selectedAccountIndex >= 0 && _selectedAccountIndex < accounts.count ? _selectedAccountIndex : -1
+        }
+        set {
+            if newValue >= -1 && newValue < accounts.count {
+                _selectedAccountIndex = newValue
+            }
+        }
+    }
     
     var currentAccount: NotionAccount? {
         guard !accounts.isEmpty, selectedAccountIndex >= 0, selectedAccountIndex < accounts.count else {
@@ -86,11 +97,75 @@ class SessionManager: ObservableObject {
             }, receiveValue: { [weak self] (response: AccountsResponse) in
                 DispatchQueue.main.async {
                     self?.accounts = response.accounts
-                    self?.selectedAccountIndex = self?.accounts.indices.first ?? 0
-                    self?.isAuthenticated = true
+                    self?.selectedAccountIndex = self?.accounts.isEmpty == false ? 0 : -1
+                    self?.isAuthenticated = !(self?.accounts.isEmpty ?? true)
                 }
             })
             .store(in: &cancellables)
+    }
+    
+    func refreshAccounts() {
+        if let notionBuddyID = UserDefaults.standard.string(forKey: "notionBuddyID") {
+            fetchAccountData(notionBuddyID: notionBuddyID)
+        } else {
+            self.accounts = []
+            self.selectedAccountIndex = -1
+            self.isAuthenticated = false
+        }
+    }
+    
+    func logoutAccount(_ account: NotionAccount) {
+        guard let url = URL(string: "http://localhost:3000/logout") else {
+            print("Invalid logout URL")
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: Any] = [
+            "notion_buddy_id": UserDefaults.standard.string(forKey: "notionBuddyID") ?? "",
+            "account_id": account.id
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        } catch {
+            print("Failed to serialize logout request body: \(error)")
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("Logout request failed: \(error)")
+                    return
+                }
+                
+                guard let self = self else { return }
+                
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                    if let index = self.accounts.firstIndex(where: { $0.id == account.id }) {
+                        self.accounts.remove(at: index)
+                        self.objectWillChange.send()
+                        
+                        if self.accounts.isEmpty {
+                            self.selectedAccountIndex = -1
+                            self.isAuthenticated = false
+                            UserDefaults.standard.removeObject(forKey: "notionBuddyID")
+                        } else if index <= self.selectedAccountIndex {
+                            self.selectedAccountIndex = max(0, self.selectedAccountIndex - 1)
+                        }
+                    }
+                    
+                    // Remove account data from UserDefaults
+                    UserDefaults.standard.removeObject(forKey: "account_\(account.id)")
+                } else {
+                    print("Logout failed with status code: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+                }
+            }
+        }.resume()
     }
     
     struct AccountsResponse: Decodable {

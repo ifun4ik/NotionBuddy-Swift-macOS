@@ -20,7 +20,7 @@ class MainViewModel: ObservableObject {
             .assign(to: \.accounts, on: self)
             .store(in: &cancellables)
         
-        sessionManager.$selectedAccountIndex
+        sessionManager.$_selectedAccountIndex  // Note: we're observing the private backing property
             .assign(to: \.selectedAccountIndex, on: self)
             .store(in: &cancellables)
         
@@ -29,7 +29,7 @@ class MainViewModel: ObservableObject {
             .sink { [weak self] index in
                 guard let self = self else { return }
                 DispatchQueue.main.async {
-                    if index >= 0 && index < self.accounts.count {
+                    if index >= -1 && index < self.accounts.count {
                         self.sessionManager.selectedAccountIndex = index
                     }
                 }
@@ -38,6 +38,7 @@ class MainViewModel: ObservableObject {
         
         fetchTemplates()
     }
+
     
     var currentAccount: NotionAccount? {
         guard !accounts.isEmpty, selectedAccountIndex >= 0, selectedAccountIndex < accounts.count else {

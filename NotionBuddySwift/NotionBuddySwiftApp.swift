@@ -4,9 +4,10 @@ import HotKey
 @main
 struct NotionBuddyApp: App {
     let persistenceController = PersistenceController.shared
-    @ObservedObject var sessionManager = SessionManager()
+    @StateObject var sessionManager = SessionManager()
 
     init() {
+        sessionManager.refreshAccounts()
         GlobalShortcutManager.shared.setupGlobalShortcut(sessionManager: sessionManager)
         StringArrayTransformer.register()
     }
