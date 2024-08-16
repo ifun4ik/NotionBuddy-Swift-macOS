@@ -158,11 +158,13 @@ struct DatabaseNavigatorView: View {
             
             if isLoading {
                 ProgressView()
-                    .frame(width: 352, height: 300)
+                    .frame(width: 352)
+                Spacer()
             } else if searchResults.isEmpty {
                 Text("No results found.")
                     .foregroundColor(.gray)
-                    .frame(width: 352, height: 300)
+                    .frame(width: 352)
+                Spacer()
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -180,7 +182,8 @@ struct DatabaseNavigatorView: View {
                         }
                     }
                 }
-                .frame(width: 352, height: 300)
+                .frame(width: 352)
+                Spacer()
             }
         }
 //        .frame(width: 352, height: 300)
@@ -199,8 +202,8 @@ struct DatabaseNavigatorView: View {
                     onDismiss()
                 })
                 .environment(\.managedObjectContext, self.managedObjectContext)
-                .frame(width: 352, height: 480)
                 .background(Color.white)
+                .frame(width: 352, height: 480)
             }
         }
     }

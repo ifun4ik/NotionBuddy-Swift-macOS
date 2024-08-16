@@ -12,7 +12,7 @@ struct MainView: View {
     }
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 8) {
             if !sessionManager.accounts.isEmpty {
                 AccountPickerView(sessionManager: sessionManager)
                 

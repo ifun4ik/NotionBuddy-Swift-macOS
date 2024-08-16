@@ -8,7 +8,7 @@ class SessionManager: ObservableObject {
     @Published var accounts: [NotionAccount] = []
     @Published var isAuthenticated: Bool = false
     @Published var _selectedAccountIndex: Int = -1
-        
+    
     var selectedAccountIndex: Int {
         get {
             return _selectedAccountIndex >= 0 && _selectedAccountIndex < accounts.count ? _selectedAccountIndex : -1
@@ -50,7 +50,7 @@ class SessionManager: ObservableObject {
     }
 
     func startWebAuthSession() {
-        var urlString = "http://localhost:3000"
+        var urlString = "https://auth.notionbuddy.me"
         if let notionBuddyID = UserDefaults.standard.string(forKey: "notionBuddyID") {
             urlString += "?notion_buddy_id=\(notionBuddyID)"
         }
@@ -76,7 +76,7 @@ class SessionManager: ObservableObject {
     }
 
     func fetchAccountData(notionBuddyID: String) {
-        let urlString = "http://localhost:3000/get_accounts?notion_buddy_id=\(notionBuddyID)"
+        let urlString = "https://auth.notionbuddy.me/get_accounts?notion_buddy_id=\(notionBuddyID)"
 
         guard let url = URL(string: urlString) else {
             print("Invalid URL for fetching account data.")
@@ -95,27 +95,61 @@ class SessionManager: ObservableObject {
                     print("Failed to fetch account data. Error: \(error.localizedDescription)")
                 }
             }, receiveValue: { [weak self] (response: AccountsResponse) in
-                DispatchQueue.main.async {
-                    self?.accounts = response.accounts
-                    self?.selectedAccountIndex = self?.accounts.isEmpty == false ? 0 : -1
-                    self?.isAuthenticated = !(self?.accounts.isEmpty ?? true)
-                }
+                print("Received account data: \(response.accounts)")
+                self?.accounts = response.accounts
+                self?.selectedAccountIndex = self?.accounts.isEmpty == false ? 0 : -1
+                self?.isAuthenticated = !(self?.accounts.isEmpty ?? true)
+                print("Updated accounts: \(self?.accounts ?? []), selectedIndex: \(self?.selectedAccountIndex ?? -1)")
             })
             .store(in: &cancellables)
     }
     
     func refreshAccounts() {
+        Task {
+            await refreshAccountsAsync()
+        }
+    }
+    
+    
+    @MainActor
+    func refreshAccountsAsync() async {
         if let notionBuddyID = UserDefaults.standard.string(forKey: "notionBuddyID") {
-            fetchAccountData(notionBuddyID: notionBuddyID)
+            print("Refreshing accounts with notionBuddyID: \(notionBuddyID)")
+            await fetchAccountDataAsync(notionBuddyID: notionBuddyID)
         } else {
+            print("No notionBuddyID found, clearing accounts")
             self.accounts = []
             self.selectedAccountIndex = -1
             self.isAuthenticated = false
         }
+        print("After refresh - Accounts: \(accounts.count), Selected Index: \(selectedAccountIndex), Is Authenticated: \(isAuthenticated)")
     }
+
+    private func fetchAccountDataAsync(notionBuddyID: String) async {
+        let urlString = "https://auth.notionbuddy.me/get_accounts?notion_buddy_id=\(notionBuddyID)"
+        guard let url = URL(string: urlString) else {
+            print("Invalid URL for fetching account data.")
+            return
+        }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let response = try JSONDecoder().decode(AccountsResponse.self, from: data)
+            print("Received account data: \(response.accounts)")
+            await MainActor.run {
+                self.accounts = response.accounts
+                self.selectedAccountIndex = self.accounts.isEmpty ? -1 : 0
+                self.isAuthenticated = !self.accounts.isEmpty
+            }
+            print("Updated accounts: \(self.accounts), selectedIndex: \(self.selectedAccountIndex)")
+        } catch {
+            print("Failed to fetch account data. Error: \(error.localizedDescription)")
+        }
+    }
+
     
     func logoutAccount(_ account: NotionAccount) {
-        guard let url = URL(string: "http://localhost:3000/logout") else {
+        guard let url = URL(string: "https://auth.notionbuddy.me/logout") else {
             print("Invalid logout URL")
             return
         }

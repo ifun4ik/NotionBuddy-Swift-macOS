@@ -451,7 +451,6 @@ struct CaptureView: View {
         // Add a new local monitor
         self.localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             if !self.handledEvents.contains(event) {
-                print("I'm here")
                 self.handledEvents.insert(event)
                 self.handleKeyEvent(event)
                 self.handledEvents.remove(event)

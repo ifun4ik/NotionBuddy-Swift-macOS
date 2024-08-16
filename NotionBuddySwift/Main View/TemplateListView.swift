@@ -7,43 +7,49 @@ struct TemplateListView: View {
     @State private var showEditTemplate = false
     
     var body: some View {
-        VStack(spacing: 0) {
-            TemplateListHeaderView(count: viewModel.templates.count, addNewTemplate: addNewTemplate)
-            
-            Divider()
-                .overlay(Color.divider)
-            
-            ForEach(Array(viewModel.templates.enumerated()), id: \.element.id) { index, template in
-                TemplateRowView(
-                    template: template,
-                    index: index,
-                    enableHover: true,
-                    enableEdit: true,
-                    enableDelete: true,
-                    onEdit: {
-                        selectedTemplate = template
-                        showEditTemplate = true
-                    },
-                    onDelete: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            viewModel.deleteTemplate(template)
+        VStack(spacing: 8) {
+            VStack(spacing: 0) {
+                TemplateListHeaderView(count: viewModel.templates.count, addNewTemplate: addNewTemplate)
+                
+                Divider()
+                    .overlay(Color.divider)
+                
+                ForEach(Array(viewModel.templates.enumerated()), id: \.element.id) { index, template in
+                    TemplateRowView(
+                        template: template,
+                        index: index,
+                        enableHover: true,
+                        enableEdit: true,
+                        enableDelete: true,
+                        onEdit: {
+                            selectedTemplate = template
+                            showEditTemplate = true
+                        },
+                        onDelete: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                viewModel.deleteTemplate(template)
+                            }
                         }
+                    )
+                    if index < viewModel.templates.count - 1 {
+                        Divider()
                     }
-                )
-                if index < viewModel.templates.count - 1 {
-                    Divider()
                 }
+                .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .scale.combined(with: .opacity)))
             }
-            .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .scale.combined(with: .opacity)))
+            .background(Color.cardBackground)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.cardStroke, lineWidth: 1)
+            )
+//            .shadow(color: Color.black.opacity(0.04), radius: 2, x: 0, y: 1)
+//            .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+            
+            if !viewModel.templates.isEmpty {
+                QuickCaptureShortcutView()
+            }
         }
-        .background(Color.cardBackground)
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.cardStroke, lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.04), radius: 2, x: 0, y: 1)
-        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.templates)
         .sheet(item: $selectedTemplate) { template in
             EditTemplateView(viewModel: TemplateViewModel(template: template), accessToken: viewModel.sessionManager.currentAccount?.accessToken ?? "")

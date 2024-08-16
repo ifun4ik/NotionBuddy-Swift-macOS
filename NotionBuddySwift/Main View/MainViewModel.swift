@@ -41,10 +41,7 @@ class MainViewModel: ObservableObject {
 
     
     var currentAccount: NotionAccount? {
-        guard !accounts.isEmpty, selectedAccountIndex >= 0, selectedAccountIndex < accounts.count else {
-            return nil
-        }
-        return accounts[selectedAccountIndex]
+        sessionManager.currentAccount
     }
     
     func addNewAccount() {

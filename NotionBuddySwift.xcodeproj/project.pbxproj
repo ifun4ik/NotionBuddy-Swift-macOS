@@ -7,9 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		12459FE32C6F173100949401 /* QuickCaptureShortcutWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12459FE22C6F173100949401 /* QuickCaptureShortcutWindow.swift */; };
 		125B73BF2C615B1400CBBF81 /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73BE2C615B1400CBBF81 /* LoginViewModel.swift */; };
 		125B73C12C615CBD00CBBF81 /* MainViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73C02C615CBD00CBBF81 /* MainViewModel.swift */; };
 		125B73C32C615D7E00CBBF81 /* NotionAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73C22C615D7E00CBBF81 /* NotionAccount.swift */; };
+		127D69962C6F1879009AF198 /* keyboard_shortcut.svg in Resources */ = {isa = PBXBuildFile; fileRef = 127D69942C6F1879009AF198 /* keyboard_shortcut.svg */; };
 		12B365172C67CE5600D5E2F5 /* CustomDatePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B365162C67CE5600D5E2F5 /* CustomDatePicker.swift */; };
 		12B608942C62B8CF0061A226 /* AccountPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B608932C62B8CF0061A226 /* AccountPickerView.swift */; };
 		12B608982C62B9010061A226 /* TemplateListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B608972C62B9010061A226 /* TemplateListView.swift */; };
@@ -62,9 +64,11 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		12459FE22C6F173100949401 /* QuickCaptureShortcutWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCaptureShortcutWindow.swift; sourceTree = "<group>"; };
 		125B73BE2C615B1400CBBF81 /* LoginViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewModel.swift; sourceTree = "<group>"; };
 		125B73C02C615CBD00CBBF81 /* MainViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewModel.swift; sourceTree = "<group>"; };
 		125B73C22C615D7E00CBBF81 /* NotionAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionAccount.swift; sourceTree = "<group>"; };
+		127D69942C6F1879009AF198 /* keyboard_shortcut.svg */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = keyboard_shortcut.svg; sourceTree = "<group>"; };
 		12B365162C67CE5600D5E2F5 /* CustomDatePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomDatePicker.swift; sourceTree = "<group>"; };
 		12B608932C62B8CF0061A226 /* AccountPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountPickerView.swift; sourceTree = "<group>"; };
 		12B608972C62B9010061A226 /* TemplateListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateListView.swift; sourceTree = "<group>"; };
@@ -161,6 +165,14 @@
 			path = "Login View";
 			sourceTree = "<group>";
 		};
+		127D69952C6F1879009AF198 /* Assets */ = {
+			isa = PBXGroup;
+			children = (
+				127D69942C6F1879009AF198 /* keyboard_shortcut.svg */,
+			);
+			path = Assets;
+			sourceTree = "<group>";
+		};
 		8D9435A22A3A461F00F7CC62 = {
 			isa = PBXGroup;
 			children = (
@@ -184,12 +196,14 @@
 		8D9435AD2A3A461F00F7CC62 /* NotionBuddySwift */ = {
 			isa = PBXGroup;
 			children = (
+				127D69952C6F1879009AF198 /* Assets */,
 				8D9435DE2A3A47C500F7CC62 /* Info.plist */,
 				8D9435AE2A3A461F00F7CC62 /* NotionBuddySwiftApp.swift */,
 				8D54B6082AC2990700B9B01F /* GlobalShortcutManager.swift */,
 				8DD1077A2AC4CC140077B935 /* CustomWindow.swift */,
 				120FFD1F2C667C4E00EFF63A /* CaptureView */,
 				8D6207E62B074B0E00A01539 /* StringArrayTransformer.swift */,
+				12459FE22C6F173100949401 /* QuickCaptureShortcutWindow.swift */,
 				8D8B95172A76964100DEDFFF /* EditTemplateView.swift */,
 				8DEA959D2A7C49910007836F /* TemplateViewModel.swift */,
 				8DF13C342A6349D00030F889 /* SessionManager.swift */,
@@ -353,6 +367,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8D9435BC2A3A462000F7CC62 /* Preview Assets.xcassets in Resources */,
+				127D69962C6F1879009AF198 /* keyboard_shortcut.svg in Resources */,
 				8D9435B82A3A462000F7CC62 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -389,6 +404,7 @@
 				8D0873372A65CAE9002F54A6 /* TemplateCreatorView.swift in Sources */,
 				125B73BF2C615B1400CBBF81 /* LoginViewModel.swift in Sources */,
 				125B73C32C615D7E00CBBF81 /* NotionAccount.swift in Sources */,
+				12459FE32C6F173100949401 /* QuickCaptureShortcutWindow.swift in Sources */,
 				12BA490E2C63DE1300FCBA17 /* DatabaseIcon.swift in Sources */,
 				8DCDA9002A5B5C07007B54E5 /* DatabaseNavigatorView.swift in Sources */,
 				8D656A042A3C2F0E0065A725 /* WebView.swift in Sources */,
