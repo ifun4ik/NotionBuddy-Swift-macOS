@@ -4,6 +4,10 @@
 <dict>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Notion Buddy needs the accessibility permissions for the global hotkey to work</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
