@@ -58,14 +58,25 @@ class GlobalShortcutManager {
         let context = PersistenceController.shared.container.viewContext
         let captureView = CaptureView(accessToken: accessToken)
             .environment(\.managedObjectContext, context)
-
+            .frame(width: 480) // Set only the width, let height adjust dynamically
+        
         let window = CustomWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 200),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 200), // Increase height
             styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
-            defer: false
+            defer: true
         )
         window.backgroundColor = .clear
+
+        let hostingView = NSHostingView(rootView: captureView)
+        window.contentView = hostingView
+
+        // Allow the view to layout its contents
+        hostingView.layout()
+
+        // Adjust window size based on the hosting view's fittingSize
+        let newSize = hostingView.fittingSize
+        window.setContentSize(newSize)
         
         if let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }) {
             let screenRect = screen.visibleFrame

@@ -12,6 +12,7 @@
 		125B73C12C615CBD00CBBF81 /* MainViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73C02C615CBD00CBBF81 /* MainViewModel.swift */; };
 		125B73C32C615D7E00CBBF81 /* NotionAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125B73C22C615D7E00CBBF81 /* NotionAccount.swift */; };
 		127D69962C6F1879009AF198 /* keyboard_shortcut.svg in Resources */ = {isa = PBXBuildFile; fileRef = 127D69942C6F1879009AF198 /* keyboard_shortcut.svg */; };
+		1298994A2C7214D700763EA8 /* KeyHintView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129899492C7214D700763EA8 /* KeyHintView.swift */; };
 		12B365172C67CE5600D5E2F5 /* CustomDatePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B365162C67CE5600D5E2F5 /* CustomDatePicker.swift */; };
 		12B608942C62B8CF0061A226 /* AccountPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B608932C62B8CF0061A226 /* AccountPickerView.swift */; };
 		12B608982C62B9010061A226 /* TemplateListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B608972C62B9010061A226 /* TemplateListView.swift */; };
@@ -69,6 +70,7 @@
 		125B73C02C615CBD00CBBF81 /* MainViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewModel.swift; sourceTree = "<group>"; };
 		125B73C22C615D7E00CBBF81 /* NotionAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotionAccount.swift; sourceTree = "<group>"; };
 		127D69942C6F1879009AF198 /* keyboard_shortcut.svg */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = keyboard_shortcut.svg; sourceTree = "<group>"; };
+		129899492C7214D700763EA8 /* KeyHintView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyHintView.swift; sourceTree = "<group>"; };
 		12B365162C67CE5600D5E2F5 /* CustomDatePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomDatePicker.swift; sourceTree = "<group>"; };
 		12B608932C62B8CF0061A226 /* AccountPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountPickerView.swift; sourceTree = "<group>"; };
 		12B608972C62B9010061A226 /* TemplateListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateListView.swift; sourceTree = "<group>"; };
@@ -136,6 +138,7 @@
 		120FFD1F2C667C4E00EFF63A /* CaptureView */ = {
 			isa = PBXGroup;
 			children = (
+				129899492C7214D700763EA8 /* KeyHintView.swift */,
 				8DD1077C2AC4CC390077B935 /* CaptureWindowController.swift */,
 				8D2F263A2AC37E1400BF9364 /* CaptureView.swift */,
 			);
@@ -412,6 +415,7 @@
 				125B73C12C615CBD00CBBF81 /* MainViewModel.swift in Sources */,
 				8D2F263B2AC37E1400BF9364 /* CaptureView.swift in Sources */,
 				8D1F719A2A649C6100F5C29C /* UserDefaultsLogger.swift in Sources */,
+				1298994A2C7214D700763EA8 /* KeyHintView.swift in Sources */,
 				12B6089A2C62B90D0061A226 /* NoAccountView.swift in Sources */,
 				8D8B95182A76964100DEDFFF /* EditTemplateView.swift in Sources */,
 				12B365172C67CE5600D5E2F5 /* CustomDatePicker.swift in Sources */,

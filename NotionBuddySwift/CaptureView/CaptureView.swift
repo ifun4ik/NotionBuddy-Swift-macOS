@@ -21,11 +21,21 @@ struct CaptureView: View {
     @State private var selectedMultiOptions: [String] = []
     @State private var multiSelectFilterText: String = ""
     @State private var handledEvents: Set<NSEvent> = []
+    @State private var selectOptionsOffset: CGFloat = 0
     
     @State private var recognizedDate: Date? = nil
     @State private var recognizedDateText: String = ""
     @State private var localEventMonitor: Any?
 
+    @State private var contentHeight: CGFloat = 0
+    
+    @State private var keyHints: [KeyHint] = [
+        KeyHint(key: "↑↓", action: "Navigate"),
+        KeyHint(key: "⇥", action: "Next field"),
+        KeyHint(key: "⇧⇥", action: "Previous field"),
+        KeyHint(key: "⌘↩", action: "Complete"),
+        KeyHint(key: "↩", action: "Next field")
+    ]
     
     
     var accessToken: String
@@ -100,169 +110,241 @@ struct CaptureView: View {
     
     
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(alignment: .center, spacing: 12) {
-                Image(systemName: "command")
-                    .resizable()
-                    .frame(width: 16, height: 16)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Constants.iconSecondary)
-                
-                if let committedTemplate = committedTemplate {
-                    HStack(spacing: 4) {
-                        Text(committedTemplate.name ?? "")
-                            .font(Font.custom("SF Pro Text", size: 16).weight(.medium))
-                            .foregroundColor(Constants.textPrimary)
-                        
-                        Image(systemName: "chevron.right")
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 8) {
+                    HStack(alignment: .center, spacing: 12) {
+                        Image(systemName: "command")
+                            .resizable()
+                            .frame(width: 16, height: 16)
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundColor(Constants.iconSecondary)
-                            .font(.system(size: 12, weight: .bold))
-                    }
-                }
-                
-                TextField(textFieldPlaceholder, text: $capturedText)
-                    .frame(height: 22)
-                    .padding(.top, 2)
-                    .textFieldStyle(.plain)
-                    .font(Font.custom("SF Pro Text", size: 16).weight(.medium))
-                    .foregroundColor(getTextFieldColor())
-                    .introspect(.textField, on: .macOS(.v10_15, .v11, .v12, .v13, .v14)) { textField in
-                        DispatchQueue.main.asyncAfter(deadline: .now()) {
-                            textField.becomeFirstResponder()
-                            textField.currentEditor()?.selectedRange = NSRange(location: textField.stringValue.count, length: 0)
-                            
-                            if committedTemplate != nil, let index = activeFieldIndex, index < displayFields.count {
-                                isPlaceholderActive = displayFields[index].defaultValue != nil
-                            } else if committedTemplate != nil {
-                                activeFieldIndex = 0
-                                isPlaceholderActive = displayFields.first?.defaultValue != nil
-                            }
-                            
-                            if let placeholderString = textField.placeholderString {
-                                let placeholderFont = NSFont(name: "SF Pro Text", size: 16) ?? NSFont.systemFont(ofSize: 16)
-                                let placeholderAttributes: [NSAttributedString.Key: Any] = [
-                                    .foregroundColor: NSColor(Constants.textSecondary),
-                                    .font: placeholderFont
-                                ]
-                                textField.placeholderAttributedString = NSAttributedString(string: placeholderString, attributes: placeholderAttributes)
-                            }
-                            
-                            textField.toolTip = recognizedDate != nil ? recognizedDateText : nil
-                        }
-                    }
-                    .onChange(of: capturedText) { newValue in
-                        handleCapturedTextChange(newValue)
-                    }
-
-                    .onAppear {
-                        var capturedDataCopy = capturedData
-                        capturedDataCopy = [:]
-                        setupKeyEventHandling()
-                        capturedData = capturedDataCopy
-                    }
-                    .onDisappear {
-                        // If there's an event monitor, remove it to prevent capturing new events.
-                        if let localEventMonitor = self.localEventMonitor {
-                            NSEvent.removeMonitor(localEventMonitor)
-                            self.localEventMonitor = nil
-                        }
-                    }
-
-
-            }
-            .padding(16)
-            .background(Color.white)
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .inset(by: 1)
-                    .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
-            )
-            
-            if let activeField = getActiveField() {
-                if ["select", "multi_select", "status"].contains(activeField.kind) {
-                    if let options = optionsForFields[activeField.name] {
-                        SelectOptionsView(
-                            options: options,
-                            onOptionSelected: { selectedOptions in
-                                handleOptionSelection(activeField: activeField, selectedOptions: selectedOptions)
-                            },
-                            filterText: $multiSelectFilterText,
-                            maxVisibleOptions: 4,
-                            activeOptionIndex: $activeOptionIndex,
-                            selectedOptions: $selectedMultiOptions,
-                            isMultiSelect: activeField.kind == "multi_select"
-                        )
-                    }
-                }
-            }
-
-            
-            VStack(spacing: 0) {
-                if let committedTemplate = committedTemplate {
-                    ForEach(Array(displayFields.enumerated()), id: \.element.id) { index, field in
-                        HStack(spacing: 16) {
-                            iconForField(field: field, index: index)
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(field.name)
-                                    .font(Font.custom("Onest", size: 16).weight(.semibold))
+                        
+                        if let committedTemplate = committedTemplate {
+                            HStack(spacing: 4) {
+                                Text(committedTemplate.name ?? "")
+                                    .font(Font.custom("SF Pro Text", size: 16).weight(.medium))
                                     .foregroundColor(Constants.textPrimary)
                                 
-                                Text(field.kind ?? "Unknown")
-                                    .font(Font.custom("Onest", size: 14).weight(.medium))
-                                    .foregroundColor(Constants.textSecondary)
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(Constants.iconSecondary)
+                                    .font(.system(size: 12, weight: .bold))
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
-                        .background(index == activeFieldIndex ? Constants.bgPrimaryHover : Color.clear)
-                        .onTapGesture {
-                            activeFieldIndex = index
+                        
+                        TextField(textFieldPlaceholder, text: $capturedText)
+                            .frame(height: 22)
+                            .padding(.top, 2)
+                            .textFieldStyle(.plain)
+                            .font(Font.custom("SF Pro Text", size: 16).weight(.medium))
+                            .foregroundColor(getTextFieldColor())
+                            .introspect(.textField, on: .macOS(.v10_15, .v11, .v12, .v13, .v14)) { textField in
+                                DispatchQueue.main.asyncAfter(deadline: .now()) {
+                                    textField.becomeFirstResponder()
+                                    textField.currentEditor()?.selectedRange = NSRange(location: textField.stringValue.count, length: 0)
+                                    
+                                    if committedTemplate != nil, let index = activeFieldIndex, index < displayFields.count {
+                                        isPlaceholderActive = displayFields[index].defaultValue != nil
+                                    } else if committedTemplate != nil {
+                                        activeFieldIndex = 0
+                                        isPlaceholderActive = displayFields.first?.defaultValue != nil
+                                    }
+                                    
+                                    if let placeholderString = textField.placeholderString {
+                                        let placeholderFont = NSFont(name: "SF Pro Text", size: 16) ?? NSFont.systemFont(ofSize: 16)
+                                        let placeholderAttributes: [NSAttributedString.Key: Any] = [
+                                            .foregroundColor: NSColor(Constants.textSecondary),
+                                            .font: placeholderFont
+                                        ]
+                                        textField.placeholderAttributedString = NSAttributedString(string: placeholderString, attributes: placeholderAttributes)
+                                    }
+                                    
+                                    textField.toolTip = recognizedDate != nil ? recognizedDateText : nil
+                                }
+                            }
+                            .onChange(of: capturedText) { newValue in
+                                handleCapturedTextChange(newValue)
+                            }
+                            .onAppear {
+                                var capturedDataCopy = capturedData
+                                capturedDataCopy = [:]
+                                setupKeyEventHandling()
+                                capturedData = capturedDataCopy
+                            }
+                            .onDisappear {
+                                if let localEventMonitor = self.localEventMonitor {
+                                    NSEvent.removeMonitor(localEventMonitor)
+                                    self.localEventMonitor = nil
+                                }
+                            }
+                    }
+                    .padding(16)
+                    .background(Color.white)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .inset(by: 1)
+                            .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
+                    )
+                    
+                    if let activeField = getActiveField() {
+                        activeOptionsView(for: activeField, in: geometry)
+                    }
+                    
+                    VStack(spacing: 0) {
+                        if let committedTemplate = committedTemplate {
+                            ForEach(Array(displayFields.enumerated()), id: \.element.id) { index, field in
+                                HStack(spacing: 16) {
+                                    iconForField(field: field, index: index)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(field.name)
+                                            .font(Font.custom("Onest", size: 16).weight(.semibold))
+                                            .foregroundColor(Constants.textPrimary)
+                                        
+                                        Text(field.kind ?? "Unknown")
+                                            .font(Font.custom("Onest", size: 14).weight(.medium))
+                                            .foregroundColor(Constants.textSecondary)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
+                                .background(index == activeFieldIndex ? Constants.bgPrimaryHover : Color.clear)
+                                .onTapGesture {
+                                    activeFieldIndex = index
+                                }
+                            }
+                        } else if displayTemplates.isEmpty {
+                            Text("Nothing found")
+                                .font(Font.custom("Manrope", size: 16).weight(.semibold))
+                                .foregroundColor(Constants.textPrimary)
+                                .padding(.horizontal, 16)
+                                .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
+                        } else {
+                            ForEach(Array(displayTemplates.enumerated()), id: \.element) { index, template in
+                                TemplateRowView(template: template, index: index, enableHover: false, enableEdit: false,
+                                                enableDelete: false) {
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
+                                .background(index == selectedIndex ? Constants.bgPrimaryHover : Color.clear)
+                                .onTapGesture {
+                                    selectedIndex = index
+                                }
+                            }
                         }
                     }
-                } else if displayTemplates.isEmpty {
-                    Text("Nothing found")
-                        .font(Font.custom("Manrope", size: 16).weight(.semibold))
-                        .foregroundColor(Constants.textPrimary)
-                        .padding(.horizontal, 16)
-                        .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
-                } else {
-                    ForEach(Array(displayTemplates.enumerated()), id: \.element) { index, template in
-                        TemplateRowView(template: template, index: index, enableHover: false, enableEdit: false,
-                                        enableDelete: false){
-                            
-                        }
-//                        HStack {
-//                            Text(template.name ?? "No template name")
-//                                .font(Font.custom("Onest", size: 16).weight(.semibold))
-//                                .foregroundColor(Constants.textPrimary)
-//                        }
-//                        .padding(.horizontal, 16)
-                        .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
-                        .background(index == selectedIndex ? Constants.bgPrimaryHover : Color.clear)
-                        .onTapGesture {
-                            selectedIndex = index
-                        }
-                    }
+                    .padding(.vertical, 8)
+                    .background(Color.white)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .inset(by: 1)
+                            .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
+                    )
+                    
+                    KeyHintView(hints: keyHints)
+                        .padding(.bottom, 16)
                 }
             }
-            .padding(.vertical, 8)
-            .background(Color.white)
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .inset(by: 1)
-                    .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
+            .frame(maxHeight: 600)
+            .background(GeometryReader { innerGeometry in
+                Color.clear.preference(key: ViewHeightKey.self, value: innerGeometry.size.height)
+            })
+            .onChange(of: activeFieldIndex) { newValue in
+                updateSelectOptionsPosition(in: geometry)
+                refreshOptionsForActiveField()
+            }
+        }
+        .onPreferenceChange(ViewHeightKey.self) { height in
+            DispatchQueue.main.async {
+                self.updateWindowHeight(height)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func activeOptionsView(for activeField: EditableTemplateFieldViewData, in geometry: GeometryProxy) -> some View {
+        if ["select", "multi_select", "status"].contains(activeField.kind) {
+            if let options = optionsForFields[activeField.name] {
+                SelectOptionsView(
+                    options: options,
+                    onOptionSelected: { selectedOptions in
+                        handleOptionSelection(activeField: activeField, selectedOptions: selectedOptions)
+                    },
+                    filterText: $multiSelectFilterText,
+                    activeOptionIndex: $activeOptionIndex,
+                    selectedOptions: selectOptionsBinding(for: activeField),
+                    isMultiSelect: activeField.kind == "multi_select"
+                )
+                .offset(y: selectOptionsOffset)
+                .zIndex(1)
+            }
+        }
+    }
+
+    private func selectOptionsBinding(for field: EditableTemplateFieldViewData) -> Binding<[String]> {
+        if field.kind == "multi_select" {
+            return $selectedMultiOptions
+        } else {
+            return Binding(
+                get: { [capturedText].filter { !$0.isEmpty } },
+                set: { newValue in
+                    if let first = newValue.first {
+                        capturedText = first
+                    }
+                }
             )
         }
+    }
+    
+    private func refreshOptionsForActiveField() {
+        guard let activeField = getActiveField() else { return }
         
+        if ["select", "multi_select", "status"].contains(activeField.kind) {
+            activeOptionIndex = 0
+            multiSelectFilterText = ""
+            
+            if activeField.kind == "multi_select" {
+                selectedMultiOptions = parseArrayString(capturedData[activeField.name] ?? "")
+            } else {
+                // For single select fields
+                if let options = optionsForFields[activeField.name],
+                   let index = options.firstIndex(of: capturedData[activeField.name] ?? "") {
+                    activeOptionIndex = index
+                }
+            }
+        }
+    }
+    
+    private func updateSelectOptionsPosition(in geometry: GeometryProxy) {
+        guard let activeField = getActiveField(),
+              ["select", "multi_select", "status"].contains(activeField.kind) else {
+            selectOptionsOffset = 0
+            return
+        }
+        
+        let activeFieldIndex = displayFields.firstIndex(where: { $0.id == activeField.id }) ?? 0
+        let offsetY = CGFloat(activeFieldIndex) * 56 // Assuming each field row is 56 points tall
+        
+        let maxOffset = geometry.size.height - 200 // 200 is the max height of SelectOptionsView
+        selectOptionsOffset = min(offsetY, maxOffset)
+    }
+    
+    private func updateWindowHeight(_ height: CGFloat) {
+        if let window = NSApplication.shared.windows.first(where: { $0.contentView?.subviews.first is NSHostingView<CaptureView> }) {
+            let newFrame = NSRect(x: window.frame.minX, y: window.frame.maxY - height,
+                                  width: window.frame.width, height: height)
+            window.setFrame(newFrame, display: true, animate: true)
+        }
     }
     
     private func handleOptionSelection(activeField: EditableTemplateFieldViewData, selectedOptions: [String]) {
         if activeField.kind == "multi_select" {
             selectedMultiOptions = selectedOptions
             capturedData[activeField.name] = selectedOptions.joined(separator: ", ")
+        } else {
+            capturedText = selectedOptions.first ?? ""
+            capturedData[activeField.name] = capturedText
         }
     }
     
@@ -273,90 +355,108 @@ struct CaptureView: View {
             return Constants.textPrimary
         }
     }
+    
+    struct ViewHeightKey: PreferenceKey {
+        static var defaultValue: CGFloat { 0 }
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = max(value, nextValue())
+        }
+    }
 
     
     
     //MARK: Select view
     struct SelectOptionsView: View {
-      var options: [String]
-      let onOptionSelected: ([String]) -> Void
-      @Binding var filterText: String
-      let maxVisibleOptions: Int
-      @Binding var activeOptionIndex: Int
-      @Binding var selectedOptions: [String]
-      let isMultiSelect: Bool
+        var options: [String]
+        let onOptionSelected: ([String]) -> Void
+        @Binding var filterText: String
+        @Binding var activeOptionIndex: Int
+        @Binding var selectedOptions: [String]
+        let isMultiSelect: Bool
 
-      private var filteredOptions: [String] {
-        options.filter { option in
-          filterText.isEmpty || option.lowercased().contains(filterText.lowercased())
+        private var filteredOptions: [String] {
+            options.filter { option in
+                filterText.isEmpty || option.lowercased().contains(filterText.lowercased())
+            }
         }
-      }
 
-      private let optionHeight: CGFloat = 44
+        private let optionHeight: CGFloat = 44
+        private let maxVisibleOptions: Int = 3
 
-      var body: some View {
-        VStack(alignment: .leading) {
-          ScrollViewReader { scrollViewProxy in
-            ScrollView {
-              LazyVStack(alignment: .leading) {
-                ForEach(Array(filteredOptions.enumerated()), id: \.element) { index, option in
-                  HStack {
+        var body: some View {
+            VStack(spacing: 0) {
+                ScrollViewReader { scrollViewProxy in
+                    ScrollView(.vertical, showsIndicators: true) {
+                        VStack(spacing: 0) {
+                            ForEach(Array(filteredOptions.enumerated()), id: \.element) { index, option in
+                                OptionRow(
+                                    option: option,
+                                    isSelected: isMultiSelect ? selectedOptions.contains(option) : selectedOptions.first == option,
+                                    isActive: index == activeOptionIndex,
+                                    isMultiSelect: isMultiSelect,
+                                    action: { toggleOptionSelection(option) }
+                                )
+                                .id(index)
+                            }
+                        }
+                    }
+                    .frame(height: min(CGFloat(filteredOptions.count), CGFloat(maxVisibleOptions)) * optionHeight)
+                    .onChange(of: activeOptionIndex) { newIndex in
+                        withAnimation {
+                            scrollViewProxy.scrollTo(newIndex, anchor: .center)
+                        }
+                    }
+                }
+            }
+            .frame(height: min(CGFloat(filteredOptions.count), CGFloat(maxVisibleOptions)) * optionHeight)
+            .background(Constants.bgPrimary)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .inset(by: 1)
+                    .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
+            )
+        }
+
+        private func toggleOptionSelection(_ option: String) {
+            if isMultiSelect {
+                if selectedOptions.contains(option) {
+                    selectedOptions.removeAll(where: { $0 == option })
+                } else {
+                    selectedOptions.append(option)
+                }
+            } else {
+                selectedOptions = [option]
+            }
+            onOptionSelected(selectedOptions)
+        }
+    }
+
+    struct OptionRow: View {
+        let option: String
+        let isSelected: Bool
+        let isActive: Bool
+        let isMultiSelect: Bool
+        let action: () -> Void
+
+        var body: some View {
+            Button(action: action) {
+                HStack {
                     if isMultiSelect {
-                      if selectedOptions.contains(option) {
-                        Image(systemName: "checkmark.square.fill")
-                          .foregroundColor(Constants.colorPrimary)
-                      } else {
-                        Image(systemName: "square")
-                          .foregroundColor(Constants.textSecondary)
-                      }
+                        Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                            .foregroundColor(isSelected ? Constants.colorPrimary : Constants.textSecondary)
                     }
                     Text(option)
-                      .font(Font.custom("Onest", size: 16).weight(.semibold))
-                      .foregroundColor(Constants.textPrimary)
-                      .id(index)
-                  }
-                  .padding(.horizontal, 16)
-                  .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
-                  .background(index == activeOptionIndex ? Constants.bgPrimaryHover : Color.clear)
-                  .onTapGesture {
-                    toggleOptionSelection(option)
-                  }
+                        .font(Font.custom("Onest", size: 16).weight(.semibold))
+                        .foregroundColor(Constants.textPrimary)
+                    Spacer()
                 }
-              }
+                .padding(.horizontal, 16)
+                .frame(height: 44)
+                .background(isActive ? Constants.bgPrimaryHover : Color.clear)
             }
-            .onChange(of: activeOptionIndex) { newIndex in
-                DispatchQueue.main.async {
-                    withAnimation {
-                        scrollViewProxy.scrollTo(newIndex, anchor: .center)
-                    }
-                }
-            }
+            .buttonStyle(PlainButtonStyle())
         }
-          .frame(minHeight: CGFloat(min(filteredOptions.count, maxVisibleOptions)) * optionHeight)
-        }
-        .background(Constants.bgPrimary)
-        .cornerRadius(8)
-        .overlay(
-          RoundedRectangle(cornerRadius: 8)
-            .inset(by: 1)
-            .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
-        )
-      }
-
-      private func toggleOptionSelection(_ option: String) {
-        if isMultiSelect {
-          if selectedOptions.contains(option) {
-            selectedOptions.removeAll(where: { $0 == option })
-          } else {
-            selectedOptions.append(option)
-          }
-          onOptionSelected(selectedOptions) // For multi-select, pass the entire array
-        } else {
-          // For single select, clear the existing selection and add the new one
-          selectedOptions = [option]
-          onOptionSelected([option]) // Pass an array with the single selected item
-        }
-      }
     }
 
 
@@ -658,14 +758,22 @@ struct CaptureView: View {
         let newField = displayFields[newIndex]
 
         if newField.kind == "multi_select" {
-            // If switching to a multi-select field, update the selection based on capturedData
             selectedMultiOptions = parseArrayString(capturedData[newField.name] ?? "")
             updateCapturedTextForMultiSelect()
+        } else if ["select", "status"].contains(newField.kind) {
+            capturedText = capturedData[newField.name] ?? ""
+            if let options = optionsForFields[newField.name],
+               let index = options.firstIndex(of: capturedText) {
+                activeOptionIndex = index
+            } else {
+                activeOptionIndex = 0
+            }
         } else {
-            // If switching to a non-multi-select field, clear the selection
-            selectedMultiOptions = []
             capturedText = capturedData[newField.name] ?? ""
         }
+        
+        // Reset filter text when switching fields
+        multiSelectFilterText = ""
     }
 
 
@@ -916,11 +1024,23 @@ struct CaptureView: View {
         selectedIndex = nil
         filledFields = []
         capturedData = [:] // Reset captured data for the new template
-        fetchOptionsForFields(from: template.databaseId!)
         
-        // Call fetchOptionsForSelectField here
+        // Fetch options for all fields at once
         if let databaseId = template.databaseId {
             fetchOptionsForFields(from: databaseId)
+        }
+        
+        // Set initial values for the first field
+        if let firstField = displayFields.first {
+            if ["select", "multi_select", "status"].contains(firstField.kind) {
+                if let options = optionsForFields[firstField.name], !options.isEmpty {
+                    capturedText = options[0]
+                    capturedData[firstField.name] = options[0]
+                    if firstField.kind == "multi_select" {
+                        selectedMultiOptions = [options[0]]
+                    }
+                }
+            }
         }
     }
 

@@ -7,6 +7,9 @@ class CaptureWindowController: NSWindowController {
     override func windowDidLoad() {
         super.windowDidLoad()
         
+        window?.setFrame(NSRect(x: 0, y: 0, width: 480, height: 1500), display: false)
+        positionWindowNearTop()
+        
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self = self else { return event }
             if event.keyCode == 53 { // Esc key
@@ -49,17 +52,15 @@ class CaptureWindowController: NSWindowController {
         let screenFrame = screen.visibleFrame
         let windowFrame = window.frame
 
-        // Calculate new origin
         let newOriginX = (screenFrame.width - windowFrame.width) / 2 + screenFrame.minX
-        let newOriginY = screenFrame.maxY - windowFrame.height + 64 // 100 pixels from the top
+        let newOriginY = screenFrame.maxY - 120 // Leave more space at the top
 
-        let newOrigin = CGPoint(x: newOriginX, y: newOriginY)
-
-        window.setFrameTopLeftPoint(newOrigin)
+        window.setFrameTopLeftPoint(NSPoint(x: newOriginX, y: newOriginY))
     }
     
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
+        window?.setFrame(NSRect(x: 0, y: 0, width: 480, height: 1500), display: false)
         positionWindowNearTop()
     }
 
