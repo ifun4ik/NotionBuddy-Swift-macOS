@@ -37,6 +37,7 @@ struct CaptureView: View {
         KeyHint(key: "↩", action: "Next field")
     ]
     
+    @State private var filterText: String = ""
     
     var accessToken: String
     
@@ -111,7 +112,6 @@ struct CaptureView: View {
     
     var body: some View {
         GeometryReader { geometry in
-            ScrollView {
                 VStack(spacing: 8) {
                     HStack(alignment: .center, spacing: 12) {
                         Image(systemName: "command")
@@ -132,51 +132,65 @@ struct CaptureView: View {
                             }
                         }
                         
-                        TextField(textFieldPlaceholder, text: $capturedText)
-                            .frame(height: 22)
-                            .padding(.top, 2)
-                            .textFieldStyle(.plain)
-                            .font(Font.custom("SF Pro Text", size: 16).weight(.medium))
-                            .foregroundColor(getTextFieldColor())
-                            .introspect(.textField, on: .macOS(.v10_15, .v11, .v12, .v13, .v14)) { textField in
-                                DispatchQueue.main.asyncAfter(deadline: .now()) {
-                                    textField.becomeFirstResponder()
-                                    textField.currentEditor()?.selectedRange = NSRange(location: textField.stringValue.count, length: 0)
-                                    
-                                    if committedTemplate != nil, let index = activeFieldIndex, index < displayFields.count {
-                                        isPlaceholderActive = displayFields[index].defaultValue != nil
-                                    } else if committedTemplate != nil {
-                                        activeFieldIndex = 0
-                                        isPlaceholderActive = displayFields.first?.defaultValue != nil
-                                    }
-                                    
-                                    if let placeholderString = textField.placeholderString {
-                                        let placeholderFont = NSFont(name: "SF Pro Text", size: 16) ?? NSFont.systemFont(ofSize: 16)
-                                        let placeholderAttributes: [NSAttributedString.Key: Any] = [
-                                            .foregroundColor: NSColor(Constants.textSecondary),
-                                            .font: placeholderFont
-                                        ]
-                                        textField.placeholderAttributedString = NSAttributedString(string: placeholderString, attributes: placeholderAttributes)
-                                    }
-                                    
-                                    textField.toolTip = recognizedDate != nil ? recognizedDateText : nil
+                        TextField(textFieldPlaceholder, text: Binding(
+                            get: { self.capturedText },
+                            set: {
+                                self.capturedText = $0
+                                self.filterText = $0
+                                self.activeOptionIndex = 0 // Reset the active option index when typing
+                            }
+                        ))
+                        .frame(height: 22)
+                        .padding(.top, 2)
+                        .textFieldStyle(.plain)
+                        .font(Font.custom("SF Pro Text", size: 16).weight(.medium))
+                        .foregroundColor(getTextFieldColor())
+                        .introspect(.textField, on: .macOS(.v10_15, .v11, .v12, .v13, .v14)) { textField in
+                            DispatchQueue.main.asyncAfter(deadline: .now()) {
+                                textField.becomeFirstResponder()
+                                textField.currentEditor()?.selectedRange = NSRange(location: textField.stringValue.count, length: 0)
+                                
+                                if committedTemplate != nil, let index = activeFieldIndex, index < displayFields.count {
+                                    isPlaceholderActive = displayFields[index].defaultValue != nil
+                                } else if committedTemplate != nil {
+                                    activeFieldIndex = 0
+                                    isPlaceholderActive = displayFields.first?.defaultValue != nil
                                 }
-                            }
-                            .onChange(of: capturedText) { newValue in
-                                handleCapturedTextChange(newValue)
-                            }
-                            .onAppear {
-                                var capturedDataCopy = capturedData
-                                capturedDataCopy = [:]
-                                setupKeyEventHandling()
-                                capturedData = capturedDataCopy
-                            }
-                            .onDisappear {
-                                if let localEventMonitor = self.localEventMonitor {
-                                    NSEvent.removeMonitor(localEventMonitor)
-                                    self.localEventMonitor = nil
+                                
+                                if let placeholderString = textField.placeholderString {
+                                    let placeholderFont = NSFont(name: "SF Pro Text", size: 16) ?? NSFont.systemFont(ofSize: 16)
+                                    let placeholderAttributes: [NSAttributedString.Key: Any] = [
+                                        .foregroundColor: NSColor(Constants.textSecondary),
+                                        .font: placeholderFont
+                                    ]
+                                    textField.placeholderAttributedString = NSAttributedString(string: placeholderString, attributes: placeholderAttributes)
                                 }
+                                
+                                textField.toolTip = recognizedDate != nil ? recognizedDateText : nil
                             }
+                        }
+                        .onChange(of: capturedText) { newValue in
+                            handleCapturedTextChange(newValue)
+                            
+                            // Update filtering for select, multi-select, and status fields
+                            if let activeField = getActiveField(),
+                               ["select", "multi_select", "status"].contains(activeField.kind) {
+                                filterText = newValue
+                                activeOptionIndex = 0 // Reset the active option index when filtering
+                            }
+                        }
+                        .onAppear {
+                            var capturedDataCopy = capturedData
+                            capturedDataCopy = [:]
+                            setupKeyEventHandling()
+                            capturedData = capturedDataCopy
+                        }
+                        .onDisappear {
+                            if let localEventMonitor = self.localEventMonitor {
+                                NSEvent.removeMonitor(localEventMonitor)
+                                self.localEventMonitor = nil
+                            }
+                        }
                     }
                     .padding(16)
                     .background(Color.white)
@@ -245,8 +259,7 @@ struct CaptureView: View {
                     KeyHintView(hints: currentKeyHints)
                        .padding(.bottom, 16)
                 }
-            }
-            .frame(maxHeight: 600)
+                .frame(maxHeight: 1400, alignment: .top)
             .background(GeometryReader { innerGeometry in
                 Color.clear.preference(key: ViewHeightKey.self, value: innerGeometry.size.height)
             })
@@ -271,7 +284,7 @@ struct CaptureView: View {
                     onOptionSelected: { selectedOptions in
                         handleOptionSelection(activeField: activeField, selectedOptions: selectedOptions)
                     },
-                    filterText: $multiSelectFilterText,
+                    filterText: $filterText,
                     activeOptionIndex: $activeOptionIndex,
                     selectedOptions: selectOptionsBinding(for: activeField),
                     isMultiSelect: activeField.kind == "multi_select"
@@ -400,7 +413,6 @@ struct CaptureView: View {
                             }
                         }
                     }
-                    .frame(height: min(CGFloat(filteredOptions.count), CGFloat(maxVisibleOptions)) * optionHeight)
                     .onChange(of: activeOptionIndex) { newIndex in
                         withAnimation {
                             scrollViewProxy.scrollTo(newIndex, anchor: .center)
@@ -569,32 +581,58 @@ struct CaptureView: View {
         }
 
         if let committedTemplate = committedTemplate, let activeFieldIndex = activeFieldIndex {
-            switch event.keyCode {
-            case 36:  // Enter/Return key
-                captureCurrentFieldData()
-
-                if let activeField = getActiveField(), activeField.kind == "multi_select" {
-                    let selectedOption = optionsForFields[activeField.name]?[safe: activeOptionIndex] ?? ""
-                    toggleMultiSelectOption(selectedOption)
-                } else {
+            if let activeField = getActiveField() {
+                let options = optionsForFields[activeField.name] ?? []
+                let filteredOptions = filterText.isEmpty ? options : options.filter { $0.lowercased().contains(filterText.lowercased()) }
+                
+                switch event.keyCode {
+                case 36:  // Enter/Return key
+                    if ["select", "multi_select", "status"].contains(activeField.kind) {
+                        if let selectedOption = filteredOptions[safe: activeOptionIndex] {
+                            capturedText = selectedOption
+                            capturedData[activeField.name] = selectedOption
+                            if activeField.kind == "multi_select" {
+                                toggleMultiSelectOption(selectedOption)
+                            }
+                        }
+                    }
+                    captureCurrentFieldData()
                     moveToNextFieldOrFinish()
-                }
-            case 48:  // Tab key
-                if shouldCaptureData() {
-                    captureCurrentFieldData()  // Capture data when there's input
-                }
-                if event.modifierFlags.contains(.shift) {
-                    switchToPreviousField()
-                } else {
-                    switchToNextField()
-                }
-            default:
-                if let activeField = getActiveField() {
-                    handleArrowKeyEvents(event, for: activeField)
+
+                case 48:  // Tab key
+                    if shouldCaptureData() {
+                        captureCurrentFieldData()
+                    }
+                    if event.modifierFlags.contains(.shift) {
+                        switchToPreviousField()
+                    } else {
+                        switchToNextField()
+                    }
+
+                case 125, 126:  // Down and Up arrow keys
+                    if ["select", "multi_select", "status"].contains(activeField.kind) {
+                        handleArrowKeyEventsForSelectFields(event.keyCode, filteredOptions: filteredOptions)
+                    }
+
+                default:
+                    break
                 }
             }
         } else {
             handleTemplateSelection(event: event)
+        }
+    }
+
+    private func handleArrowKeyEventsForSelectFields(_ keyCode: UInt16, filteredOptions: [String]) {
+        if filteredOptions.isEmpty { return }
+        
+        switch keyCode {
+        case 125:  // Down arrow key
+            activeOptionIndex = (activeOptionIndex + 1) % filteredOptions.count
+        case 126:  // Up arrow key
+            activeOptionIndex = (activeOptionIndex - 1 + filteredOptions.count) % filteredOptions.count
+        default:
+            break
         }
     }
     
@@ -774,6 +812,7 @@ struct CaptureView: View {
         
         // Reset filter text when switching fields
         multiSelectFilterText = ""
+        filterText = ""
     }
 
 
@@ -1222,9 +1261,13 @@ struct CaptureView: View {
                 // Store the URL regardless of validation
                 capturedData[activeField.name] = newValue
             case "multi_select":
+                filterText = newValue
+                activeOptionIndex = 0
                 let inputOptions = newValue.components(separatedBy: ", ").filter { !$0.isEmpty }
                 selectedMultiOptions = inputOptions
             case "select", "status":
+                filterText = newValue
+                activeOptionIndex = 0
                 capturedData[activeField.name] = newValue
             default:
                 // For text and other types, store as is
