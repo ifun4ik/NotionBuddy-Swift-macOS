@@ -277,27 +277,36 @@ struct CaptureView: View {
     
     @ViewBuilder
     private func activeOptionsView(for activeField: EditableTemplateFieldViewData, in geometry: GeometryProxy) -> some View {
-        if ["select", "multi_select", "status"].contains(activeField.kind) {
-            if let options = optionsForFields[activeField.name] {
-                SelectOptionsView(
-                    options: options,
-                    onOptionSelected: { selectedOptions in
-                        handleOptionSelection(activeField: activeField, selectedOptions: selectedOptions)
-                    },
-                    filterText: $filterText,
-                    activeOptionIndex: $activeOptionIndex,
-                    selectedOptions: selectOptionsBinding(for: activeField),
-                    isMultiSelect: activeField.kind == "multi_select"
-                )
-                .offset(y: selectOptionsOffset)
-                .zIndex(1)
-            }
+        if ["select", "multi_select", "status", "checkbox"].contains(activeField.kind) {
+            let options = activeField.kind == "checkbox" ? ["true", "false"] : (optionsForFields[activeField.name] ?? [])
+            SelectOptionsView(
+                options: options,
+                onOptionSelected: { selectedOptions in
+                    handleOptionSelection(activeField: activeField, selectedOptions: selectedOptions)
+                },
+                filterText: $filterText,
+                activeOptionIndex: $activeOptionIndex,
+                selectedOptions: selectOptionsBinding(for: activeField),
+                isMultiSelect: activeField.kind == "multi_select"
+            )
+            .offset(y: selectOptionsOffset)
+            .zIndex(1)
         }
     }
 
     private func selectOptionsBinding(for field: EditableTemplateFieldViewData) -> Binding<[String]> {
         if field.kind == "multi_select" {
             return $selectedMultiOptions
+        } else if field.kind == "checkbox" {
+            return Binding(
+                get: { [capturedData[field.name] ?? "false"] },
+                set: { newValue in
+                    if let first = newValue.first {
+                        capturedData[field.name] = first
+                        capturedText = first
+                    }
+                }
+            )
         } else {
             return Binding(
                 get: { [capturedText].filter { !$0.isEmpty } },
@@ -582,12 +591,12 @@ struct CaptureView: View {
 
         if let committedTemplate = committedTemplate, let activeFieldIndex = activeFieldIndex {
             if let activeField = getActiveField() {
-                let options = optionsForFields[activeField.name] ?? []
+                let options = activeField.kind == "checkbox" ? ["true", "false"] : (optionsForFields[activeField.name] ?? [])
                 let filteredOptions = filterText.isEmpty ? options : options.filter { $0.lowercased().contains(filterText.lowercased()) }
                 
                 switch event.keyCode {
                 case 36:  // Enter/Return key
-                    if ["select", "multi_select", "status"].contains(activeField.kind) {
+                    if ["select", "multi_select", "status", "checkbox"].contains(activeField.kind) {
                         if let selectedOption = filteredOptions[safe: activeOptionIndex] {
                             capturedText = selectedOption
                             capturedData[activeField.name] = selectedOption
@@ -610,7 +619,7 @@ struct CaptureView: View {
                     }
 
                 case 125, 126:  // Down and Up arrow keys
-                    if ["select", "multi_select", "status"].contains(activeField.kind) {
+                    if ["select", "multi_select", "status", "checkbox"].contains(activeField.kind) {
                         handleArrowKeyEventsForSelectFields(event.keyCode, filteredOptions: filteredOptions)
                     }
 
@@ -930,12 +939,7 @@ struct CaptureView: View {
             let fieldName = fieldData.name
             let fieldValue = capturedData[fieldName] ?? ""
             
-            print("Field Name: \(fieldName), Field Kind: \(fieldData.kind ?? "unknown"), Field Value: \(fieldValue)")
-            
-            // Skip the field if the value is empty
-            if fieldValue.isEmpty {
-                continue
-            }
+            if fieldValue.isEmpty { continue }
 
             switch fieldData.kind {
             case "title":
@@ -1269,6 +1273,9 @@ struct CaptureView: View {
                 filterText = newValue
                 activeOptionIndex = 0
                 capturedData[activeField.name] = newValue
+            case "checkbox":
+                filterText = newValue
+                activeOptionIndex = 0
             default:
                 // For text and other types, store as is
                 capturedData[activeField.name] = newValue
