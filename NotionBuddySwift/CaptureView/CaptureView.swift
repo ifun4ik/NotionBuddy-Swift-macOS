@@ -405,7 +405,7 @@ struct CaptureView: View {
                                 OptionRow(
                                     option: option,
                                     isSelected: isMultiSelect ? selectedOptions.contains(option) : selectedOptions.first == option,
-                                    isActive: index == activeOptionIndex,
+                                    isHighlighted: index == activeOptionIndex,
                                     isMultiSelect: isMultiSelect,
                                     action: { toggleOptionSelection(option) }
                                 )
@@ -447,7 +447,7 @@ struct CaptureView: View {
     struct OptionRow: View {
         let option: String
         let isSelected: Bool
-        let isActive: Bool
+        let isHighlighted: Bool  // Change this line
         let isMultiSelect: Bool
         let action: () -> Void
 
@@ -465,7 +465,7 @@ struct CaptureView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(height: 44)
-                .background(isActive ? Constants.bgPrimaryHover : Color.clear)
+                .background(isHighlighted ? Constants.bgPrimaryHover : Color.clear)  // Change this line
             }
             .buttonStyle(PlainButtonStyle())
         }
