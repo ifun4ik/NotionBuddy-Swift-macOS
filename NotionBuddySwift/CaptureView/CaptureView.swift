@@ -242,8 +242,8 @@ struct CaptureView: View {
                             .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
                     )
                     
-                    KeyHintView(hints: keyHints)
-                        .padding(.bottom, 16)
+                    KeyHintView(hints: currentKeyHints)
+                       .padding(.bottom, 16)
                 }
             }
             .frame(maxHeight: 600)
@@ -1277,6 +1277,41 @@ struct CaptureView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.date(from: dateString) != nil
+    }
+    
+    private var currentKeyHints: [KeyHint] {
+        var hints: [KeyHint] = []
+        
+        if committedTemplate == nil {
+            // Template selection state
+            hints.append(KeyHint(key: "↑↓", action: "Navigate"))
+            hints.append(KeyHint(key: "↩", action: "Select template"))
+        } else if let activeField = getActiveField() {
+            // Field input state
+            switch activeField.kind {
+            case "select", "multi_select", "status":
+                hints.append(KeyHint(key: "↑↓", action: "Navigate"))
+            default:
+                break
+            }
+            
+            hints.append(KeyHint(key: "↩", action: "Save input"))
+            hints.append(KeyHint(key: "⌘↩", action: "Save and exit"))
+            
+            if let activeFieldIndex = activeFieldIndex {
+                if activeFieldIndex < displayFields.count - 1 {
+                    hints.append(KeyHint(key: "⇥", action: "Next"))
+                }
+                if activeFieldIndex > 0 {
+                    hints.append(KeyHint(key: "⇧⇥", action: "Previous"))
+                }
+            }
+        }
+        
+        // Common hints for all states
+        hints.append(KeyHint(key: "esc", action: "Close"))
+        
+        return hints
     }
 
 
