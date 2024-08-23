@@ -22,23 +22,27 @@ struct CaptureView: View {
     @State private var multiSelectFilterText: String = ""
     @State private var handledEvents: Set<NSEvent> = []
     @State private var selectOptionsOffset: CGFloat = 0
-    
+
     @State private var recognizedDate: Date? = nil
     @State private var recognizedDateText: String = ""
     @State private var localEventMonitor: Any?
 
     @State private var contentHeight: CGFloat = 0
-    
+
     @State private var keyHints: [KeyHint] = [
-        KeyHint(key: "↑↓", action: "Navigate"),
-        KeyHint(key: "⇥", action: "Next field"),
-        KeyHint(key: "⇧⇥", action: "Previous field"),
-        KeyHint(key: "⌘↩", action: "Complete"),
-        KeyHint(key: "↩", action: "Next field")
+       KeyHint(key: "↑↓", action: "Navigate"),
+       KeyHint(key: "⇥", action: "Next field"),
+       KeyHint(key: "⇧⇥", action: "Previous field"),
+       KeyHint(key: "⌘↩", action: "Complete"),
+       KeyHint(key: "↩", action: "Next field")
     ]
-    
+
     @State private var filterText: String = ""
-    
+    @State private var fieldActiveOptionIndices: [String: Int] = [:]
+
+    @State private var lastClickedField: UUID?
+    @State private var lastClickTime: Date = Date()
+
     var accessToken: String
     
     private var filteredTemplates: [Template] {
@@ -62,6 +66,10 @@ struct CaptureView: View {
         }
 
         let field = displayFields[index]
+        if field.kind == "multi_select" {
+            let cleanedOptions = selectedMultiOptions.filter { !$0.isEmpty }
+            return cleanedOptions.isEmpty ? "Select options..." : cleanedOptions.joined(separator: ", ")
+        }
         if filledFields.contains(index), let filledValue = capturedData[field.name], !filledValue.isEmpty {
             return filledValue
         }
@@ -225,7 +233,7 @@ struct CaptureView: View {
                                 .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
                                 .background(index == activeFieldIndex ? Constants.bgPrimaryHover : Color.clear)
                                 .onTapGesture {
-                                    activeFieldIndex = index
+                                    handleFieldTap(index: index, fieldId: field.id)
                                 }
                             }
                         } else if displayTemplates.isEmpty {
@@ -242,7 +250,7 @@ struct CaptureView: View {
                                 .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56, alignment: .leading)
                                 .background(index == selectedIndex ? Constants.bgPrimaryHover : Color.clear)
                                 .onTapGesture {
-                                    selectedIndex = index
+                                    handleTemplateTap(index: index)
                                 }
                             }
                         }
@@ -260,20 +268,20 @@ struct CaptureView: View {
                        .padding(.bottom, 16)
                 }
                 .frame(maxHeight: 1400, alignment: .top)
-            .background(GeometryReader { innerGeometry in
-                Color.clear.preference(key: ViewHeightKey.self, value: innerGeometry.size.height)
-            })
-            .onChange(of: activeFieldIndex) { newValue in
-                updateSelectOptionsPosition(in: geometry)
-                refreshOptionsForActiveField()
+                .background(GeometryReader { innerGeometry in
+                    Color.clear.preference(key: ViewHeightKey.self, value: innerGeometry.size.height)
+                })
+                .onChange(of: activeFieldIndex) { newValue in
+                    updateSelectOptionsPosition(in: geometry)
+                    refreshOptionsForActiveField()
+                }
+            }
+            .onPreferenceChange(ViewHeightKey.self) { height in
+                DispatchQueue.main.async {
+                    self.updateWindowHeight(height)
+                }
             }
         }
-        .onPreferenceChange(ViewHeightKey.self) { height in
-            DispatchQueue.main.async {
-                self.updateWindowHeight(height)
-            }
-        }
-    }
     
     @ViewBuilder
     private func activeOptionsView(for activeField: EditableTemplateFieldViewData, in geometry: GeometryProxy) -> some View {
@@ -284,6 +292,9 @@ struct CaptureView: View {
                 onOptionSelected: { selectedOptions in
                     handleOptionSelection(activeField: activeField, selectedOptions: selectedOptions)
                 },
+                onSingleSelectOptionChosen: { option in
+                    handleSingleSelectOptionChosen(activeField: activeField, option: option)
+                },
                 filterText: $filterText,
                 activeOptionIndex: $activeOptionIndex,
                 selectedOptions: selectOptionsBinding(for: activeField),
@@ -293,31 +304,102 @@ struct CaptureView: View {
             .zIndex(1)
         }
     }
-
-    private func selectOptionsBinding(for field: EditableTemplateFieldViewData) -> Binding<[String]> {
-        if field.kind == "multi_select" {
-            return $selectedMultiOptions
-        } else if field.kind == "checkbox" {
-            return Binding(
-                get: { [capturedData[field.name] ?? "false"] },
-                set: { newValue in
-                    if let first = newValue.first {
-                        capturedData[field.name] = first
-                        capturedText = first
-                    }
-                }
-            )
+    
+    private func handleSingleSelectOptionChosen(activeField: EditableTemplateFieldViewData, option: String) {
+        capturedData[activeField.name] = option
+        capturedText = option  // Update the text field
+        moveToNextFieldOrFinish()  // Move to the next field
+    }
+    
+    
+       
+    private func handleFieldTap(index: Int, fieldId: UUID) {
+        let now = Date()
+        if activeFieldIndex == index && lastClickedField == fieldId && now.timeIntervalSince(lastClickTime) < 0.3 {
+            // Double click (or second click within 300ms)
+            confirmFieldSelection()
         } else {
-            return Binding(
-                get: { [capturedText].filter { !$0.isEmpty } },
-                set: { newValue in
-                    if let first = newValue.first {
-                        capturedText = first
-                    }
-                }
-            )
+            // Single click or new field selection
+            if activeFieldIndex != index {
+                resetInput()
+            }
+            activeFieldIndex = index
+            lastClickedField = fieldId
+        }
+        lastClickTime = now
+    }
+
+    private func handleTemplateTap(index: Int) {
+        let now = Date()
+        if selectedIndex == index && now.timeIntervalSince(lastClickTime) < 0.3 {
+            // Double click (or second click within 300ms)
+            if let template = displayTemplates[safe: index] {
+                commitTemplate(template)
+            }
+        } else {
+            // Single click or new template selection
+            selectedIndex = index
+        }
+        lastClickTime = now
+    }
+    
+    private func confirmFieldSelection() {
+        captureCurrentFieldData()
+        moveToNextFieldOrFinish()
+    }
+
+    private func resetInput() {
+        capturedText = ""
+        filterText = ""
+        activeOptionIndex = 0
+        selectedMultiOptions = []
+    }
+       
+    private func switchToField(index: Int) {
+        if let currentIndex = activeFieldIndex, currentIndex != index {
+            captureCurrentFieldData()
+        }
+        activeFieldIndex = index
+        updatePlaceholder()
+        updateMultiSelectOnFieldChange(newIndex: index)
+        capturedText = "" // Reset input on field switch
+    }
+
+    private func selectField(field: EditableTemplateFieldViewData, index: Int) {
+        if field.kind == "multi_select" {
+            if let options = optionsForFields[field.name],
+               let selectedOption = options[safe: activeOptionIndex] {
+                toggleMultiSelectOption(selectedOption)
+            }
+        } else {
+            moveToNextFieldOrFinish()
         }
     }
+
+       private func selectOptionsBinding(for field: EditableTemplateFieldViewData) -> Binding<[String]> {
+           if field.kind == "multi_select" {
+               return $selectedMultiOptions
+           } else if field.kind == "checkbox" {
+               return Binding(
+                   get: { [capturedData[field.name] ?? "false"] },
+                   set: { newValue in
+                       if let first = newValue.first {
+                           capturedData[field.name] = first
+                           capturedText = first
+                       }
+                   }
+               )
+           } else {
+               return Binding(
+                   get: { [capturedText].filter { !$0.isEmpty } },
+                   set: { newValue in
+                       if let first = newValue.first {
+                           capturedText = first
+                       }
+                   }
+               )
+           }
+       }
     
     private func refreshOptionsForActiveField() {
         guard let activeField = getActiveField() else { return }
@@ -363,10 +445,10 @@ struct CaptureView: View {
     private func handleOptionSelection(activeField: EditableTemplateFieldViewData, selectedOptions: [String]) {
         if activeField.kind == "multi_select" {
             selectedMultiOptions = selectedOptions
-            capturedData[activeField.name] = selectedOptions.joined(separator: ", ")
+            updateCapturedDataForMultiSelect()
         } else {
+            capturedData[activeField.name] = selectedOptions.first ?? ""
             capturedText = selectedOptions.first ?? ""
-            capturedData[activeField.name] = capturedText
         }
     }
     
@@ -391,40 +473,55 @@ struct CaptureView: View {
     struct SelectOptionsView: View {
         var options: [String]
         let onOptionSelected: ([String]) -> Void
+        let onSingleSelectOptionChosen: (String) -> Void
         @Binding var filterText: String
         @Binding var activeOptionIndex: Int
         @Binding var selectedOptions: [String]
         let isMultiSelect: Bool
-
+        
         private var filteredOptions: [String] {
             options.filter { option in
                 filterText.isEmpty || option.lowercased().contains(filterText.lowercased())
             }
         }
-
+        
         private let optionHeight: CGFloat = 44
-        private let maxVisibleOptions: Int = 3
-
+        private let maxVisibleOptions: Int = 5
+        
         var body: some View {
-            VStack(spacing: 0) {
+            VStack(alignment: .leading) {
                 ScrollViewReader { scrollViewProxy in
-                    ScrollView(.vertical, showsIndicators: true) {
-                        VStack(spacing: 0) {
+                    ScrollView {
+                        LazyVStack(alignment: .leading) {
                             ForEach(Array(filteredOptions.enumerated()), id: \.element) { index, option in
-                                OptionRow(
-                                    option: option,
-                                    isSelected: isMultiSelect ? selectedOptions.contains(option) : selectedOptions.first == option,
-                                    isHighlighted: index == activeOptionIndex,
-                                    isMultiSelect: isMultiSelect,
-                                    action: { toggleOptionSelection(option) }
-                                )
-                                .id(index)
+                                HStack {
+                                    if isMultiSelect {
+                                        Image(systemName: selectedOptions.contains(option) ? "checkmark.square.fill" : "square")
+                                            .foregroundColor(selectedOptions.contains(option) ? Constants.colorPrimary : Constants.textSecondary)
+                                    }
+                                    Text(option)
+                                        .font(Font.custom("Onest", size: 16).weight(.semibold))
+                                        .foregroundColor(Constants.textPrimary)
+                                        .id(index)
+                                }
+                                .padding(.horizontal, 16)
+                                .frame(maxWidth: .infinity, minHeight: optionHeight, maxHeight: optionHeight, alignment: .leading)
+                                .background(index == activeOptionIndex ? Constants.bgPrimaryHover : Color.clear)
+                                .onTapGesture {
+                                    if isMultiSelect {
+                                        toggleOptionSelection(option)
+                                    } else {
+                                        onSingleSelectOptionChosen(option)
+                                    }
+                                }
                             }
                         }
                     }
                     .onChange(of: activeOptionIndex) { newIndex in
-                        withAnimation {
-                            scrollViewProxy.scrollTo(newIndex, anchor: .center)
+                        DispatchQueue.main.async {
+                            withAnimation {
+                                scrollViewProxy.scrollTo(newIndex, anchor: .center)
+                            }
                         }
                     }
                 }
@@ -438,7 +535,7 @@ struct CaptureView: View {
                     .stroke(Constants.bgPrimaryStroke, lineWidth: 1)
             )
         }
-
+        
         private func toggleOptionSelection(_ option: String) {
             if isMultiSelect {
                 if selectedOptions.contains(option) {
@@ -446,17 +543,15 @@ struct CaptureView: View {
                 } else {
                     selectedOptions.append(option)
                 }
-            } else {
-                selectedOptions = [option]
+                onOptionSelected(selectedOptions)
             }
-            onOptionSelected(selectedOptions)
         }
     }
 
     struct OptionRow: View {
         let option: String
         let isSelected: Bool
-        let isHighlighted: Bool  // Change this line
+        let isHighlighted: Bool
         let isMultiSelect: Bool
         let action: () -> Void
 
@@ -474,7 +569,7 @@ struct CaptureView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(height: 44)
-                .background(isHighlighted ? Constants.bgPrimaryHover : Color.clear)  // Change this line
+                .background(isHighlighted ? Constants.bgPrimaryHover : Color.clear)
             }
             .buttonStyle(PlainButtonStyle())
         }
@@ -598,24 +693,28 @@ struct CaptureView: View {
                 case 36:  // Enter/Return key
                     if ["select", "multi_select", "status", "checkbox"].contains(activeField.kind) {
                         if let selectedOption = filteredOptions[safe: activeOptionIndex] {
-                            capturedText = selectedOption
-                            capturedData[activeField.name] = selectedOption
                             if activeField.kind == "multi_select" {
                                 toggleMultiSelectOption(selectedOption)
+                                // Don't move to next field for multi-select
+                            } else {
+                                capturedText = selectedOption
+                                capturedData[activeField.name] = selectedOption
+                                moveToNextFieldOrFinish()
                             }
                         }
+                    } else {
+                        captureCurrentFieldData()
+                        moveToNextFieldOrFinish()
                     }
-                    captureCurrentFieldData()
-                    moveToNextFieldOrFinish()
 
                 case 48:  // Tab key
                     if shouldCaptureData() {
                         captureCurrentFieldData()
                     }
                     if event.modifierFlags.contains(.shift) {
-                        switchToPreviousField()
+                        switchToPreviousField(maintainSelection: true)
                     } else {
-                        switchToNextField()
+                        switchToNextField(maintainSelection: true)
                     }
 
                 case 125, 126:  // Down and Up arrow keys
@@ -631,6 +730,77 @@ struct CaptureView: View {
             handleTemplateSelection(event: event)
         }
     }
+    
+    private func switchToNextField(maintainSelection: Bool = false) {
+        guard let index = activeFieldIndex, displayFields.indices.contains(index) else { return }
+
+        let currentField = displayFields[index]
+        if currentField.priority == "mandatory" && (capturedData[currentField.name]?.isEmpty ?? true) {
+            attemptedFinish = true
+        } else {
+            let nextIndex = index < displayFields.count - 1 ? index + 1 : 0
+            updateActiveField(to: nextIndex, maintainSelection: maintainSelection)
+        }
+    }
+
+    private func switchToPreviousField(maintainSelection: Bool = false) {
+        if let currentIndex = activeFieldIndex {
+            let previousIndex = currentIndex > 0 ? currentIndex - 1 : displayFields.count - 1
+            updateActiveField(to: previousIndex, maintainSelection: maintainSelection)
+        }
+    }
+    
+    private func updateActiveField(to newIndex: Int, maintainSelection: Bool) {
+        let oldField = getActiveField()
+        activeFieldIndex = newIndex
+        let newField = getActiveField()
+        
+        updatePlaceholder()
+        
+        if !maintainSelection || oldField?.kind != newField?.kind {
+            resetFieldSelection(for: newField)
+        }
+        
+        updateMultiSelectOnFieldChange(newIndex: newIndex)
+    }
+    
+    private func resetFieldSelection(for field: EditableTemplateFieldViewData?) {
+        guard let field = field else { return }
+        
+        switch field.kind {
+        case "multi_select":
+            selectedMultiOptions = parseArrayString(capturedData[field.name] ?? "")
+            updateCapturedTextForMultiSelect()
+        case "select", "status", "checkbox":
+            capturedText = capturedData[field.name] ?? ""
+            if let options = optionsForFields[field.name],
+               let index = options.firstIndex(of: capturedText) {
+                activeOptionIndex = index
+            } else {
+                activeOptionIndex = 0
+            }
+        default:
+            capturedText = capturedData[field.name] ?? ""
+        }
+        
+        filterText = ""
+    }
+
+    private func toggleMultiSelectOption(_ option: String) {
+        if selectedMultiOptions.contains(option) {
+            selectedMultiOptions.removeAll { $0 == option }
+        } else {
+            selectedMultiOptions.append(option)
+        }
+        updateCapturedDataForMultiSelect()
+    }
+    
+    private func updateCapturedDataForMultiSelect() {
+        if let activeField = getActiveField(), activeField.kind == "multi_select" {
+            let cleanedOptions = selectedMultiOptions.filter { !$0.isEmpty }
+            capturedData[activeField.name] = cleanedOptions.joined(separator: ", ")
+        }
+    }
 
     private func handleArrowKeyEventsForSelectFields(_ keyCode: UInt16, filteredOptions: [String]) {
         if filteredOptions.isEmpty { return }
@@ -642,6 +812,11 @@ struct CaptureView: View {
             activeOptionIndex = (activeOptionIndex - 1 + filteredOptions.count) % filteredOptions.count
         default:
             break
+        }
+        
+        // Store the new index for the current field
+        if let activeField = getActiveField() {
+            fieldActiveOptionIndices[activeField.name] = activeOptionIndex
         }
     }
     
@@ -706,17 +881,6 @@ struct CaptureView: View {
             break
         }
 
-        updateCapturedTextForMultiSelect()
-    }
-
-
-
-    private func toggleMultiSelectOption(_ option: String) {
-        if let index = selectedMultiOptions.firstIndex(of: option) {
-            selectedMultiOptions.remove(at: index)
-        } else {
-            selectedMultiOptions.append(option)
-        }
         updateCapturedTextForMultiSelect()
     }
 
@@ -804,23 +968,21 @@ struct CaptureView: View {
 
         let newField = displayFields[newIndex]
 
-        if newField.kind == "multi_select" {
+        switch newField.kind {
+        case "multi_select":
             selectedMultiOptions = parseArrayString(capturedData[newField.name] ?? "")
-            updateCapturedTextForMultiSelect()
-        } else if ["select", "status"].contains(newField.kind) {
+            capturedText = "" // Clear the input text for multi-select
+        case "select", "status", "checkbox":
             capturedText = capturedData[newField.name] ?? ""
-            if let options = optionsForFields[newField.name],
-               let index = options.firstIndex(of: capturedText) {
-                activeOptionIndex = index
+            if let options = optionsForFields[newField.name] {
+                activeOptionIndex = fieldActiveOptionIndices[newField.name] ?? 0
             } else {
                 activeOptionIndex = 0
             }
-        } else {
+        default:
             capturedText = capturedData[newField.name] ?? ""
         }
         
-        // Reset filter text when switching fields
-        multiSelectFilterText = ""
         filterText = ""
     }
 
@@ -832,14 +994,13 @@ struct CaptureView: View {
         switch activeField.kind {
         case "multi_select":
             capturedData[activeField.name] = selectedMultiOptions.joined(separator: ",")
-        case "select", "status":
+            // Don't update capturedText for multi-select
+        case "select", "status", "checkbox":
             capturedData[activeField.name] = capturedText
+            fieldActiveOptionIndices[activeField.name] = activeOptionIndex
         case "date":
-            // Use the recognized date text if available, otherwise use the raw input
             let dateText = recognizedDate != nil ? recognizedDateText : capturedText
             capturedData[activeField.name] = dateText
-        case "checkbox":
-                capturedData[activeField.name] = capturedText.lowercased() == "true" ? "true" : "false"
         default:
             capturedData[activeField.name] = capturedText.isEmpty ? (activeField.defaultValue ?? "") : capturedText
         }
@@ -849,19 +1010,14 @@ struct CaptureView: View {
 
 
     private func moveToNextFieldOrFinish() {
-        // Check if activeFieldIndex is valid before proceeding
-        guard let activeFieldIndex = activeFieldIndex, displayFields.indices.contains(activeFieldIndex) else { return }
-
-        if activeFieldIndex == displayFields.count - 1 {
-            if validateRequiredFields() {
-                finishCapture()
-            } else {
-                highlightUnfilledRequiredFields()
-                // Notify user to fill mandatory fields
-            }
+        guard let currentIndex = activeFieldIndex else { return }
+        
+        if currentIndex < displayFields.count - 1 {
+            activeFieldIndex = currentIndex + 1
+            capturedText = ""  // Clear the text for the next field
         } else {
-            self.activeFieldIndex! += 1
-            capturedText = ""
+            // We're at the last field, so finish the capture process
+            finishCapture()
         }
     }
 
@@ -1067,6 +1223,7 @@ struct CaptureView: View {
         selectedIndex = nil
         filledFields = []
         capturedData = [:] // Reset captured data for the new template
+        fieldActiveOptionIndices = [:] // Reset active option indices
         
         // Fetch options for all fields at once
         if let databaseId = template.databaseId {
@@ -1082,6 +1239,7 @@ struct CaptureView: View {
                     if firstField.kind == "multi_select" {
                         selectedMultiOptions = [options[0]]
                     }
+                    fieldActiveOptionIndices[firstField.name] = 0
                 }
             }
         }
@@ -1264,11 +1422,9 @@ struct CaptureView: View {
             case "url":
                 // Store the URL regardless of validation
                 capturedData[activeField.name] = newValue
-            case "multi_select":
-                filterText = newValue
-                activeOptionIndex = 0
-                let inputOptions = newValue.components(separatedBy: ", ").filter { !$0.isEmpty }
-                selectedMultiOptions = inputOptions
+//            case "multi_select":
+//                filterText = newValue
+//                activeOptionIndex = 0
             case "select", "status":
                 filterText = newValue
                 activeOptionIndex = 0
