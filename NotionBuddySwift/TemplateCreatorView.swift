@@ -48,6 +48,7 @@ class TemplateFieldViewData: ObservableObject, Identifiable {
 struct FieldRow: View {
     @ObservedObject var field: TemplateFieldViewData
     @State private var showMultiSelect = false
+    var accessToken: String
     
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -140,6 +141,16 @@ struct FieldRow: View {
             case "relation":
                 CustomDropdown(selection: $field.defaultValue, options: field.options ?? [:])
                     .disabled(field.priority == .skip)
+                    .onAppear {
+                        if let databaseId = field.options?.first?.key {
+                            fetchRelatedDatabaseTitles(for: databaseId) { titles in
+                                DispatchQueue.main.async {
+                                    field.options = titles
+                                    field.defaultValue = titles.values.first ?? ""
+                                }
+                            }
+                        }
+                    }
             default:
                 TextField("Default Value", text: $field.defaultValue)
                     .textFieldStyle(PlainTextFieldStyle())
@@ -157,6 +168,55 @@ struct FieldRow: View {
         }
         .padding(.vertical, 8)
     }
+
+    func fetchRelatedDatabaseTitles(for databaseId: String, completion: @escaping ([String: String]) -> Void) {
+        guard let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)/query") else {
+            completion([:])
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.addValue("2021-08-16", forHTTPHeaderField: "Notion-Version")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("Error fetching related database titles: \(error)")
+                completion([:])
+                return
+            }
+
+            guard let data = data else {
+                completion([:])
+                return
+            }
+
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                   let results = json["results"] as? [[String: Any]] {
+                    var titles: [String: String] = [:]
+                    for result in results {
+                        if let id = result["id"] as? String,
+                           let properties = result["properties"] as? [String: Any],
+                           let titleProperty = properties.first(where: { $0.value is [String: Any] && ($0.value as? [String: Any])?["title"] is [[String: Any]] }),
+                           let titleArray = (titleProperty.value as? [String: Any])?["title"] as? [[String: Any]],
+                           let firstTitle = titleArray.first,
+                           let plainText = firstTitle["plain_text"] as? String {
+                            titles[id] = plainText
+                        }
+                    }
+                    completion(titles)
+                } else {
+                    completion([:])
+                }
+            } catch {
+                print("Error parsing related database titles: \(error)")
+                completion([:])
+            }
+        }.resume()
+    }
 }
 
 struct TemplateCreatorView: View {
@@ -171,6 +231,8 @@ struct TemplateCreatorView: View {
     
     @State private var draggedItem: TemplateFieldViewData?
     @State private var draggedOffset: CGFloat = 0
+
+    var accessToken: String
 
     var body: some View {
         VStack(spacing: 0) {
@@ -223,7 +285,7 @@ struct TemplateCreatorView: View {
                     
                     // Template Fields
                     ForEach(templateFields) { field in
-                        FieldRow(field: field)
+                        FieldRow(field: field, accessToken: accessToken)
                             .opacity(draggedItem?.id == field.id ? 0.5 : 1.0)
                             .offset(y: draggedItem?.id == field.id ? draggedOffset : 0)
                             .zIndex(draggedItem?.id == field.id ? 1 : 0)
@@ -251,8 +313,6 @@ struct TemplateCreatorView: View {
                 }
                 .padding(.bottom, 16)
             }
-            
-            
             
             // Save Template Button
             Button(action: saveTemplate) {
@@ -297,7 +357,6 @@ struct TemplateCreatorView: View {
         }
     }
 
-    
     func fetchExistingNames() -> [String] {
         let fetchRequest: NSFetchRequest<Template> = Template.fetchRequest()
         do {
@@ -330,32 +389,16 @@ struct TemplateCreatorView: View {
                     } ?? [:]
                 case "relation":
                     if let databaseId = property.relation?.database_id {
-                        fetchRelatedDatabaseTitles(for: databaseId) { titles in
-                            DispatchQueue.main.async {
-                                let fieldViewData = TemplateFieldViewData(
-                                    name: name,
-                                    kind: property.type,
-                                    defaultValue: titles.first?.value ?? "",
-                                    order: Int16(self.templateFields.count),
-                                    options: titles
-                                )
-                                if fieldViewData.priority == .skip {
-                                    skipPriorityFields.append(fieldViewData)
-                                } else {
-                                    self.templateFields.append(fieldViewData)
-                                }
-                            }
-                        }
+                        options = [databaseId: "Loading..."]
                     }
                 default:
                     break
                 }
 
-                let defaultValue = options.first?.value ?? ""
                 let fieldViewData = TemplateFieldViewData(
                     name: name,
                     kind: property.type,
-                    defaultValue: defaultValue,
+                    defaultValue: "",
                     order: Int16(templateFields.count),
                     options: options.isEmpty ? nil : options
                 )
@@ -368,13 +411,6 @@ struct TemplateCreatorView: View {
             }
 
             templateFields.append(contentsOf: skipPriorityFields)
-        }
-    }
-    
-    func move(from source: IndexSet, to destination: Int) {
-        templateFields.move(fromOffsets: source, toOffset: destination)
-        for (index, field) in templateFields.enumerated() {
-            field.order = Int16(index)
         }
     }
     
@@ -407,7 +443,6 @@ struct TemplateCreatorView: View {
                 }
             } else if fieldViewData.kind == "relation" {
                 newField.defaultValue = fieldViewData.defaultValue
-                // We don't save options for relations, as they will be fetched each time
             } else {
                 newField.defaultValue = fieldViewData.defaultValue
             }
@@ -445,55 +480,6 @@ struct TemplateCreatorView: View {
             }
         }
         return true
-    }
-
-    func fetchRelatedDatabaseTitles(for databaseId: String, completion: @escaping ([String: String]) -> Void) {
-        guard let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)/query") else {
-            completion([:])
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.addValue("Bearer \(UserDefaults.standard.string(forKey: "NotionAccessToken") ?? "")", forHTTPHeaderField: "Authorization")
-        request.addValue("2021-08-16", forHTTPHeaderField: "Notion-Version")
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("Error fetching related database titles: \(error)")
-                completion([:])
-                return
-            }
-
-            guard let data = data else {
-                completion([:])
-                return
-            }
-
-            do {
-                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-                let results = json["results"] as? [[String: Any]] {
-                    var titles: [String: String] = [:]
-                    for result in results {
-                        if let id = result["id"] as? String,
-                        let properties = result["properties"] as? [String: Any],
-                        let titleProperty = properties.first(where: { $0.value is [String: Any] && ($0.value as? [String: Any])?["title"] is [[String: Any]] }),
-                        let titleArray = (titleProperty.value as? [String: Any])?["title"] as? [[String: Any]],
-                        let firstTitle = titleArray.first,
-                        let plainText = firstTitle["plain_text"] as? String {
-                            titles[id] = plainText
-                        }
-                    }
-                    completion(titles)
-                } else {
-                    completion([:])
-                }
-            } catch {
-                print("Error parsing related database titles: \(error)")
-                completion([:])
-            }
-        }.resume()
     }
 }
 
@@ -673,27 +659,30 @@ struct CustomDropdown: View {
             .buttonStyle(PlainButtonStyle())
             
             if isExpanded {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(options.sorted(by: { $0.value < $1.value }), id: \.key) { key, value in
-                        Button(action: {
-                            selection = key
-                            withAnimation {
-                                isExpanded = false
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(options.keys.sorted()), id: \.self) { key in
+                            Button(action: {
+                                selection = key
+                                withAnimation {
+                                    isExpanded = false
+                                }
+                            }) {
+                                HStack {
+                                    Text(options[key] ?? "")
+                                        .font(.custom("Onest-Regular", size: 16))
+                                        .foregroundColor(.textPrimary)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .background(selection == key ? Color.bgSecondary : Color.clear)
                             }
-                        }) {
-                            HStack {
-                                Text(value)
-                                    .font(.custom("Onest-Regular", size: 16))
-                                    .foregroundStyle(Color.textPrimary)
-                                Spacer()
-                            }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                            .background(selection == key ? Color.bgSecondary : Color.clear)
+                            .buttonStyle(PlainButtonStyle())
                         }
-                        .buttonStyle(PlainButtonStyle())
                     }
                 }
+                .frame(height: min(CGFloat(options.count) * 44, 200))
                 .background(Color.white)
                 .cornerRadius(8)
                 .overlay(

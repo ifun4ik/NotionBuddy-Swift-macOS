@@ -204,7 +204,7 @@ struct DatabaseNavigatorView: View {
                 TemplateCreatorView(database: selectedDatabase, onSave: {
                     showTemplateCreator = false
                     onDismiss()
-                })
+                }, accessToken: accessToken)
                 .environment(\.managedObjectContext, self.managedObjectContext)
                 .background(Color.white)
                 .frame(width: 352, height: 480)

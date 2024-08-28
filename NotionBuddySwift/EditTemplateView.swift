@@ -10,9 +10,9 @@ struct EditTemplateView: View {
     @State private var forceRefresh: Bool = false
     @State private var draggedItem: EditableTemplateFieldViewData?
     @State private var draggedOffset: CGFloat = 0
-
+    
     var accessToken: String
-
+    
     var body: some View {
         VStack(spacing: 0) {
             // Title bar
@@ -132,7 +132,7 @@ struct EditTemplateView: View {
             fetchDatabase(gottaCheck: true)
         }
     }
-
+    
     private func getDestinationIndex(for offsetY: CGFloat, fromIndex: Int) -> Int? {
         let rowHeight: CGFloat = 100 // Approximate height of a FieldRow
         let moveThreshold: CGFloat = rowHeight / 2
@@ -144,11 +144,11 @@ struct EditTemplateView: View {
             return min(max(predictedIndex, 0), viewModel.templateFields.count - 1)
         }
     }
-
+    
     func canSave() -> Bool {
         return !viewModel.templateName.isEmpty && allMandatoryFieldsHaveDefaultValue()
     }
-
+    
     func allMandatoryFieldsHaveDefaultValue() -> Bool {
         for field in viewModel.templateFields {
             if field.priority == "mandatory" && field.defaultValue.isEmpty {
@@ -157,17 +157,17 @@ struct EditTemplateView: View {
         }
         return true
     }
-
+    
     func updateTemplate() {
         viewModel.template.name = viewModel.templateName
         viewModel.template.order = Int16(viewModel.templateFields.count)
-
+        
         if let oldFields = viewModel.template.fields as? Set<TemplateField> {
             for oldField in oldFields {
                 managedObjectContext.delete(oldField)
             }
         }
-
+        
         for (index, fieldViewData) in viewModel.templateFields.enumerated() {
             let newField = TemplateField(context: managedObjectContext)
             newField.id = fieldViewData.id
@@ -175,7 +175,7 @@ struct EditTemplateView: View {
             newField.order = Int16(index)
             newField.kind = fieldViewData.kind
             newField.priority = fieldViewData.priority
-
+            
             if fieldViewData.kind == "multi_select" {
                 if let jsonData = try? JSONEncoder().encode(fieldViewData.selectedValues) {
                     newField.defaultValue = String(data: jsonData, encoding: .utf8) ?? ""
@@ -183,7 +183,7 @@ struct EditTemplateView: View {
             } else {
                 newField.defaultValue = fieldViewData.defaultValue
             }
-
+            
             if fieldViewData.kind == "relation" {
                 newField.options = nil
             } else if let options = fieldViewData.options {
@@ -194,10 +194,10 @@ struct EditTemplateView: View {
                     print("Failed to archive options: \(error)")
                 }
             }
-
+            
             viewModel.template.addToFields(newField)
         }
-
+        
         do {
             try managedObjectContext.save()
             self.presentationMode.wrappedValue.dismiss()
@@ -205,30 +205,30 @@ struct EditTemplateView: View {
             print("Failed to update template: \(error)")
         }
     }
-
+    
     func fetchDatabase(gottaCheck: Bool) {
         guard let databaseId = viewModel.template.databaseId,
               let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)") else {
             print("Invalid URL or database ID.")
             return
         }
-
+        
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.addValue("2021-05-13", forHTTPHeaderField: "Notion-Version")
-
+        
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 print("Failed to fetch database properties. Error: \(error.localizedDescription)")
                 return
             }
-
+            
             guard let data = data else {
                 print("Failed to retrieve database properties.")
                 return
             }
-
+            
             do {
                 if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                    let properties = json["properties"] as? [String: Any] {
@@ -245,7 +245,7 @@ struct EditTemplateView: View {
             }
         }.resume()
     }
-
+    
     func compareFetchedDatabaseWithTemplate(fetchedData: [String: Any], withFields fields: [EditableTemplateFieldViewData]) {
         // Clear the conflicts
         conflicts.removeAll()
@@ -284,7 +284,7 @@ struct EditTemplateView: View {
         
         print("Conflicts found: \(conflicts)")
     }
-
+    
     func resetTemplateToNotion() {
         // 1. Delete old fields from the managedObjectContext
         if let oldFields = viewModel.template.fields as? Set<TemplateField> {
@@ -355,7 +355,7 @@ struct EditTemplateView: View {
         
         // 4. Update the viewModel.templateFields with our new fields
         viewModel.templateFields = newTemplateFields
-
+        
         // 5. Save the context after adding new fields
         managedObjectContext.perform {
             do {
@@ -369,44 +369,104 @@ struct EditTemplateView: View {
             }
         }
     }
-
+    
     func fetchOptions(fetchedData: [String: Any]) {
-            for (key, fetchedValue) in fetchedData {
-                if let templateField = viewModel.templateFields.first(where: { $0.name == key }) {
-                    if let fetchedDict = fetchedValue as? [String: Any] {
-                        // Handle select fields
-                        if templateField.kind == "select", let selectDict = fetchedDict["select"] as? [String: Any],
-                           let options = selectDict["options"] as? [[String: Any]] {
-                            let optionNames = options.compactMap { $0["name"] as? String }
-                            DispatchQueue.main.async {
-                                templateField.options = optionNames
-                                templateField.defaultValue = optionNames.first ?? ""
-                            }
+        for (key, fetchedValue) in fetchedData {
+            if let templateField = viewModel.templateFields.first(where: { $0.name == key }) {
+                if let fetchedDict = fetchedValue as? [String: Any] {
+                    // Handle select fields
+                    if templateField.kind == "select", let selectDict = fetchedDict["select"] as? [String: Any],
+                       let options = selectDict["options"] as? [[String: Any]] {
+                        let optionNames = options.compactMap { $0["name"] as? String }
+                        DispatchQueue.main.async {
+                            templateField.options = optionNames
+                            templateField.defaultValue = optionNames.first ?? ""
                         }
-
-                        // Handle multi_select fields
-                        if templateField.kind == "multi_select", let multiSelectDict = fetchedDict["multi_select"] as? [String: Any],
-                           let options = multiSelectDict["options"] as? [[String: Any]] {
-                            let optionNames = options.compactMap { $0["name"] as? String }
-                            DispatchQueue.main.async {
-                                templateField.options = optionNames
-                            }
+                    }
+                    
+                    // Handle multi_select fields
+                    if templateField.kind == "multi_select", let multiSelectDict = fetchedDict["multi_select"] as? [String: Any],
+                       let options = multiSelectDict["options"] as? [[String: Any]] {
+                        let optionNames = options.compactMap { $0["name"] as? String }
+                        DispatchQueue.main.async {
+                            templateField.options = optionNames
                         }
-
-                        // Handle status fields
-                        if templateField.kind == "status", let statusDict = fetchedDict["status"] as? [String: Any],
-                           let options = statusDict["options"] as? [[String: Any]] {
-                            let optionNames = options.compactMap { $0["name"] as? String }
-                            DispatchQueue.main.async {
-                                templateField.options = optionNames
-                                templateField.defaultValue = optionNames.first ?? ""
-                            }
+                    }
+                    
+                    // Handle status fields
+                    if templateField.kind == "status", let statusDict = fetchedDict["status"] as? [String: Any],
+                       let options = statusDict["options"] as? [[String: Any]] {
+                        let optionNames = options.compactMap { $0["name"] as? String }
+                        DispatchQueue.main.async {
+                            templateField.options = optionNames
+                            templateField.defaultValue = optionNames.first ?? ""
+                        }
+                    }
+                    
+                    // Handle relation fields
+                    if templateField.kind == "relation", let relationDict = fetchedDict["relation"] as? [String: Any],
+                        let databaseId = relationDict["database_id"] as? String {
+                            fetchRelatedDatabaseTitles(for: databaseId) { titles in
+                                DispatchQueue.main.async {
+                                    templateField.options = Array(titles.values)
+                                    templateField.defaultValue = titles.values.first ?? ""
+                                }
                         }
                     }
                 }
             }
         }
     }
+    
+    func fetchRelatedDatabaseTitles(for databaseId: String, completion: @escaping ([String: String]) -> Void) {
+        guard let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)/query") else {
+            completion([:])
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.addValue("2021-08-16", forHTTPHeaderField: "Notion-Version")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("Error fetching related database titles: \(error)")
+                completion([:])
+                return
+            }
+            
+            guard let data = data else {
+                completion([:])
+                return
+            }
+            
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                   let results = json["results"] as? [[String: Any]] {
+                    var titles: [String: String] = [:]
+                    for result in results {
+                        if let id = result["id"] as? String,
+                           let properties = result["properties"] as? [String: Any],
+                           let titleProperty = properties.first(where: { $0.value is [String: Any] && ($0.value as? [String: Any])?["title"] is [[String: Any]] }),
+                           let titleArray = (titleProperty.value as? [String: Any])?["title"] as? [[String: Any]],
+                           let firstTitle = titleArray.first,
+                           let plainText = firstTitle["plain_text"] as? String {
+                            titles[id] = plainText
+                        }
+                    }
+                    completion(titles)
+                } else {
+                    completion([:])
+                }
+            } catch {
+                print("Error parsing related database titles: \(error)")
+                completion([:])
+            }
+        }.resume()
+    }
+}
 
     struct EditFieldRow: View {
         @ObservedObject var field: EditableTemplateFieldViewData
@@ -499,6 +559,9 @@ struct EditTemplateView: View {
                         }
                     )) .frame(width: .infinity)
                     .disabled(field.priority == "skip")
+                case "relation":
+                    CustomDropdown(selection: $field.defaultValue, options: field.options?.reduce(into: [String: String]()) { $0[$1] = $1 } ?? [:])
+                        .disabled(field.priority == "skip")
                 default:
                     TextField("Default Value", text: $field.defaultValue)
                         .textFieldStyle(PlainTextFieldStyle())
