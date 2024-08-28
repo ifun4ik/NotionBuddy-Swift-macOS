@@ -63,6 +63,7 @@ struct Database: Identifiable, Decodable {
         let title: Title?
         let url: Url?
         let status: Status?
+        let relation: Relation?
         
         struct Status: Decodable {
             let options: [Option]
@@ -88,6 +89,9 @@ struct Database: Identifiable, Decodable {
         struct RichText: Decodable {}
         struct Title: Decodable {}
         struct Url: Decodable {}
+        struct Relation: Decodable {
+            let database_id: String
+        }
 
         struct SelectOptions: Decodable {
             let options: [Option]

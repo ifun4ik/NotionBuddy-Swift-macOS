@@ -285,7 +285,7 @@ struct CaptureView: View {
     
     @ViewBuilder
     private func activeOptionsView(for activeField: EditableTemplateFieldViewData, in geometry: GeometryProxy) -> some View {
-        if ["select", "multi_select", "status", "checkbox"].contains(activeField.kind) {
+        if ["select", "multi_select", "status", "checkbox", "relation"].contains(activeField.kind) {
             let options = activeField.kind == "checkbox" ? ["true", "false"] : (optionsForFields[activeField.name] ?? [])
             SelectOptionsView(
                 options: options,
@@ -422,7 +422,7 @@ struct CaptureView: View {
     
     private func updateSelectOptionsPosition(in geometry: GeometryProxy) {
         guard let activeField = getActiveField(),
-              ["select", "multi_select", "status"].contains(activeField.kind) else {
+              ["select", "multi_select", "status", "relation"].contains(activeField.kind) else {
             selectOptionsOffset = 0
             return
         }
@@ -616,11 +616,10 @@ struct CaptureView: View {
             }
 
             do {
-                if let jsonResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    if let properties = jsonResponse["properties"] as? [String: Any] {
-                        DispatchQueue.main.async {
-                            self.extractOptionsFromProperties(properties)
-                        }
+                if let jsonResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let properties = jsonResponse["properties"] as? [String: Any] {
+                    DispatchQueue.main.async {
+                        self.extractOptionsFromProperties(properties)
                     }
                 }
             } catch {
@@ -629,25 +628,85 @@ struct CaptureView: View {
         }.resume()
     }
 
-
-
-    // Extract options for 'select', 'multi_select', and 'status' fields
-    func extractOptionsFromProperties(_ properties: [String: Any]) {
+    private func extractOptionsFromProperties(_ properties: [String: Any]) {
         var allOptions: [String: [String]] = [:]
 
         for (key, value) in properties {
             if let propertyDict = value as? [String: Any],
-               let fieldType = propertyDict["type"] as? String,
-               fieldType == "select" || fieldType == "multi_select" || fieldType == "status",
-               let selectDict = propertyDict[fieldType] as? [String: Any],
-               let options = selectDict["options"] as? [[String: Any]] {
-                allOptions[key] = options.compactMap { $0["name"] as? String }
+                let fieldType = propertyDict["type"] as? String {
+                switch fieldType {
+                case "select", "multi_select", "status":
+                    if let selectDict = propertyDict[fieldType] as? [String: Any],
+                        let options = selectDict["options"] as? [[String: Any]] {
+                        allOptions[key] = options.compactMap { $0["name"] as? String }
+                    }
+                case "relation":
+                    if let relationDict = propertyDict["relation"] as? [String: Any],
+                        let databaseId = relationDict["database_id"] as? String {
+                        fetchPageTitles(for: databaseId) { pageTitles in
+                            DispatchQueue.main.async {
+                                self.optionsForFields[key] = pageTitles.map { $0.value }
+                            }
+                        }
+                    }
+                default:
+                    break
+                }
             }
         }
 
         DispatchQueue.main.async {
             self.optionsForFields = allOptions
         }
+    }
+
+    public func fetchPageTitles(for databaseId: String, completion: @escaping ([String: String]) -> Void) {
+        guard let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)/query") else {
+            completion([:])
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.addValue("2021-08-16", forHTTPHeaderField: "Notion-Version")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("Error fetching page titles: \(error)")
+                completion([:])
+                return
+            }
+
+            guard let data = data else {
+                completion([:])
+                return
+            }
+
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                   let results = json["results"] as? [[String: Any]] {
+                    var pageTitles: [String: String] = [:]
+                    for result in results {
+                        if let id = result["id"] as? String,
+                           let properties = result["properties"] as? [String: Any],
+                           let titleProperty = properties.first(where: { $0.value is [String: Any] && ($0.value as? [String: Any])?["title"] is [[String: Any]] }),
+                           let titleArray = (titleProperty.value as? [String: Any])?["title"] as? [[String: Any]],
+                           let firstTitle = titleArray.first,
+                           let plainText = firstTitle["plain_text"] as? String {
+                            pageTitles[id] = plainText
+                        }
+                    }
+                    completion(pageTitles)
+                } else {
+                    completion([:])
+                }
+            } catch {
+                print("Error parsing page titles: \(error)")
+                completion([:])
+            }
+        }.resume()
     }
 
     
@@ -891,8 +950,13 @@ struct CaptureView: View {
         switch activeField.kind {
         case "multi_select":
             capturedData[activeField.name] = selectedMultiOptions.joined(separator: ",")
+            // Don't update capturedText for multi-select
         case "select", "status":
             capturedData[activeField.name] = capturedText
+            fieldActiveOptionIndices[activeField.name] = activeOptionIndex
+        case "date":
+            let dateText = recognizedDate != nil ? recognizedDateText : capturedText
+            capturedData[activeField.name] = dateText
         default:
             capturedData[activeField.name] = capturedText.isEmpty ? (activeField.defaultValue ?? "") : capturedText
         }
@@ -1387,7 +1451,7 @@ struct CaptureView: View {
         // Patterns covering various date formats
         let patterns = [
             "\\d{2}/\\d{2}/\\d{2,4}", "\\d{2}-\\d{2}-\\d{2,4}", "\\d{2}, [A-Za-z]+ \\d{2,4}",
-            "[A-Za-z]+ \\d{2}, \\d{2,4}", "\\d{2} [A-Za-z]{3}, \\d{2,4}", "[A-Za-z]{3} \\d{2}, \\d{2,4}",
+            "[A-Za-z]+ \\d{2}, \\d{2,4}", "\\d{2} [A-Za-z]{3}, \\d{2,4}", "[A-Za-z]{3} \\d{2}, \\d{2}",
             "\\d{4}/\\d{2}/\\d{2}", "\\d{4}-\\d{2}-\\d{2}", "\\d{4}, [A-Za-z]+ \\d{2}",
             "\\d{2}/\\d{2}/\\d{2}", "\\d{2}-\\d{2}-\\d{2}", "\\d{2}, [A-Za-z]+ \\d{2}",
             "[A-Za-z]+ \\d{2}, \\d{2}", "\\d{2} [A-Za-z]{3}, \\d{2}", "[A-Za-z]{3} \\d{2}, \\d{2}"

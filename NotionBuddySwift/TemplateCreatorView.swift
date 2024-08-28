@@ -19,14 +19,14 @@ class TemplateFieldViewData: ObservableObject, Identifiable {
     @Published var defaultValues: Set<String> = []
     @Published var order: Int16
     @Published var selectedValues: Set<String> = []
-    var options: [String]? = nil
+    var options: [String: String]? = nil
     
     init(
         name: String,
         kind: String,
         defaultValue: String,
         order: Int16,
-        options: [String]? = nil
+        options: [String: String]? = nil
     ) {
         self.name = name
         self.kind = kind
@@ -126,10 +126,10 @@ struct FieldRow: View {
                     disabled: field.priority == .skip
                 )
             case "select", "status":
-                CustomDropdown(selection: $field.defaultValue, options: field.options ?? [])
+                CustomDropdown(selection: $field.defaultValue, options: field.options ?? [:])
                     .disabled(field.priority == .skip)
             case "multi_select":
-                MultiSelectView(options: field.options ?? [], selectedOptions: Binding(
+                MultiSelectView(options: field.options?.values.map { $0 } ?? [], selectedOptions: Binding(
                     get: { Set(field.selectedValues) },
                     set: { newValues in
                         field.selectedValues = newValues
@@ -137,6 +137,9 @@ struct FieldRow: View {
                     }
                 )) .frame(width: .infinity)
                 .disabled(field.priority == .skip)
+            case "relation":
+                CustomDropdown(selection: $field.defaultValue, options: field.options ?? [:])
+                    .disabled(field.priority == .skip)
             default:
                 TextField("Default Value", text: $field.defaultValue)
                     .textFieldStyle(PlainTextFieldStyle())
@@ -310,20 +313,45 @@ struct TemplateCreatorView: View {
             var skipPriorityFields: [TemplateFieldViewData] = []
 
             for (name, property) in properties {
-                var options: [String] = []
+                var options: [String: String] = [:]
 
                 switch property.type {
                 case "select":
-                    options = property.select?.options.map { $0.name } ?? []
+                    options = property.select?.options.reduce(into: [:]) { result, option in
+                        result[option.id] = option.name
+                    } ?? [:]
                 case "multi_select":
-                    options = property.multi_select?.options.map { $0.name } ?? []
+                    options = property.multi_select?.options.reduce(into: [:]) { result, option in
+                        result[option.id] = option.name
+                    } ?? [:]
                 case "status":
-                    options = property.status?.options.map { $0.name } ?? []
+                    options = property.status?.options.reduce(into: [:]) { result, option in
+                        result[option.id] = option.name
+                    } ?? [:]
+                case "relation":
+                    if let databaseId = property.relation?.database_id {
+                        fetchRelatedDatabaseTitles(for: databaseId) { titles in
+                            DispatchQueue.main.async {
+                                let fieldViewData = TemplateFieldViewData(
+                                    name: name,
+                                    kind: property.type,
+                                    defaultValue: titles.first?.value ?? "",
+                                    order: Int16(self.templateFields.count),
+                                    options: titles
+                                )
+                                if fieldViewData.priority == .skip {
+                                    skipPriorityFields.append(fieldViewData)
+                                } else {
+                                    self.templateFields.append(fieldViewData)
+                                }
+                            }
+                        }
+                    }
                 default:
                     break
                 }
 
-                let defaultValue = options.first ?? ""
+                let defaultValue = options.first?.value ?? ""
                 let fieldViewData = TemplateFieldViewData(
                     name: name,
                     kind: property.type,
@@ -377,6 +405,9 @@ struct TemplateCreatorView: View {
                 if let jsonData = try? JSONEncoder().encode(selectedValues) {
                     newField.defaultValue = String(data: jsonData, encoding: .utf8) ?? ""
                 }
+            } else if fieldViewData.kind == "relation" {
+                newField.defaultValue = fieldViewData.defaultValue
+                // We don't save options for relations, as they will be fetched each time
             } else {
                 newField.defaultValue = fieldViewData.defaultValue
             }
@@ -414,6 +445,55 @@ struct TemplateCreatorView: View {
             }
         }
         return true
+    }
+
+    func fetchRelatedDatabaseTitles(for databaseId: String, completion: @escaping ([String: String]) -> Void) {
+        guard let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)/query") else {
+            completion([:])
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(UserDefaults.standard.string(forKey: "NotionAccessToken") ?? "")", forHTTPHeaderField: "Authorization")
+        request.addValue("2021-08-16", forHTTPHeaderField: "Notion-Version")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("Error fetching related database titles: \(error)")
+                completion([:])
+                return
+            }
+
+            guard let data = data else {
+                completion([:])
+                return
+            }
+
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                let results = json["results"] as? [[String: Any]] {
+                    var titles: [String: String] = [:]
+                    for result in results {
+                        if let id = result["id"] as? String,
+                        let properties = result["properties"] as? [String: Any],
+                        let titleProperty = properties.first(where: { $0.value is [String: Any] && ($0.value as? [String: Any])?["title"] is [[String: Any]] }),
+                        let titleArray = (titleProperty.value as? [String: Any])?["title"] as? [[String: Any]],
+                        let firstTitle = titleArray.first,
+                        let plainText = firstTitle["plain_text"] as? String {
+                            titles[id] = plainText
+                        }
+                    }
+                    completion(titles)
+                } else {
+                    completion([:])
+                }
+            } catch {
+                print("Error parsing related database titles: \(error)")
+                completion([:])
+            }
+        }.resume()
     }
 }
 
@@ -563,7 +643,7 @@ struct CustomSegmentedPicker: View {
 
 struct CustomDropdown: View {
     @Binding var selection: String
-    let options: [String]
+    let options: [String: String]
     @State private var isExpanded = false
     
     var body: some View {
@@ -574,18 +654,9 @@ struct CustomDropdown: View {
                 }
             }) {
                 HStack {
-                    if let firstWord = selection.components(separatedBy: .whitespaces).first,
-                       firstWord.unicodeScalars.allSatisfy({ $0.properties.isEmoji }) {
-                        Text(firstWord)
-                            .font(.system(size: 18))
-                        Text(selection.trimmingPrefix(firstWord).trimmingCharacters(in: .whitespaces))
-                            .font(.custom("Onest-Regular", size: 16))
-                            .foregroundColor(.textPrimary)
-                    } else {
-                        Text(selection)
-                            .font(.custom("Onest-Regular", size: 16))
-                            .foregroundColor(.textPrimary)
-                    }
+                    Text(options[selection] ?? selection)
+                        .font(.custom("Onest-Regular", size: 16))
+                        .foregroundColor(.textPrimary)
                     Spacer()
                     Image(systemName: "chevron.down")
                         .foregroundColor(.textSecondary)
@@ -603,32 +674,22 @@ struct CustomDropdown: View {
             
             if isExpanded {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(options, id: \.self) { option in
+                    ForEach(options.sorted(by: { $0.value < $1.value }), id: \.key) { key, value in
                         Button(action: {
-                            selection = option
+                            selection = key
                             withAnimation {
                                 isExpanded = false
                             }
                         }) {
                             HStack {
-                                if let firstWord = option.components(separatedBy: .whitespaces).first,
-                                   firstWord.unicodeScalars.allSatisfy({ $0.properties.isEmoji }) {
-                                    Text(firstWord)
-                                        .font(.system(size: 18))
-                                        .foregroundStyle(Color.textPrimary)
-                                    Text(option.trimmingPrefix(firstWord).trimmingCharacters(in: .whitespaces))
-                                        .font(.custom("Onest-Regular", size: 16))
-                                        .foregroundStyle(Color.textPrimary)
-                                } else {
-                                    Text(option)
-                                        .font(.custom("Onest-Regular", size: 16))
-                                        .foregroundStyle(Color.textPrimary)
-                                }
+                                Text(value)
+                                    .font(.custom("Onest-Regular", size: 16))
+                                    .foregroundStyle(Color.textPrimary)
                                 Spacer()
                             }
                             .padding(.vertical, 8)
                             .padding(.horizontal, 12)
-                            .background(selection == option ? Color.bgSecondary : Color.clear)
+                            .background(selection == key ? Color.bgSecondary : Color.clear)
                         }
                         .buttonStyle(PlainButtonStyle())
                     }

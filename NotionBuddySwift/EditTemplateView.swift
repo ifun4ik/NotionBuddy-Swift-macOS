@@ -184,7 +184,9 @@ struct EditTemplateView: View {
                 newField.defaultValue = fieldViewData.defaultValue
             }
 
-            if let options = fieldViewData.options {
+            if fieldViewData.kind == "relation" {
+                newField.options = nil
+            } else if let options = fieldViewData.options {
                 do {
                     let data = try NSKeyedArchiver.archivedData(withRootObject: options, requiringSecureCoding: false) as NSData
                     newField.options = data
@@ -486,7 +488,7 @@ struct EditTemplateView: View {
                         disabled: field.priority == "skip"
                     )
                 case "select", "status":
-                    CustomDropdown(selection: $field.defaultValue, options: field.options ?? [])
+                    CustomDropdown(selection: $field.defaultValue, options: field.options?.reduce(into: [String: String]()) { $0[$1] = $1 } ?? [:])
                         .disabled(field.priority == "skip")
                 case "multi_select":
                     MultiSelectView(options: field.options ?? [], selectedOptions: Binding(
