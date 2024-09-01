@@ -11,7 +11,7 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
     @Published var order: Int16
     @Published var options: [String]? = nil
     @Published var selectedValues: Set<String> = []
-
+    @Published var relationOptions: [String: String]?
 
     init(templateField: TemplateField) {
         self.kind = templateField.kind ?? ""
@@ -19,28 +19,25 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
         self.priority = templateField.priority ?? FieldPriority.optional.rawValue
         self.defaultValue = templateField.defaultValue ?? ""
         self.order = templateField.order
-        self.options = templateField.options as? [String]
 
-        checkFieldOptionsConflicts(with: templateField)
-
-        // Check if there's a default value, if not and it's a picker type, set the first option
         if let optionsData = templateField.options as? Data {
             do {
-                // Attempt to unarchive the data
-                if let optionsArray = try NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(optionsData) as? [String] {
-                    self.options = optionsArray
+                // Try to decode as a dictionary first
+                if let optionsDictionary = try? JSONDecoder().decode([String: String].self, from: optionsData) {
+                    self.options = Array(optionsDictionary.values)
+                    self.relationOptions = optionsDictionary
                 } else {
-                    print("Failed to unarchive options data")
-                    self.options = []
+                    // If it's not a dictionary, try decoding as an array
+                    self.options = try JSONDecoder().decode([String].self, from: optionsData)
                 }
             } catch {
-                print("Error unarchiving options data: \(error)")
+                print("Error decoding options data: \(error)")
                 self.options = []
             }
         } else {
             self.options = []
         }
-        
+
         if kind == "multi_select", let defaultValue = templateField.defaultValue {
             if let jsonData = defaultValue.data(using: .utf8) {
                 do {
@@ -51,11 +48,9 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
                 }
             }
         }
-        
     }
 
-        // Check for field options conflicts
-
+    // Check for field options conflicts
     func checkFieldOptionsConflicts(with originalField: TemplateField) {
         // Assuming options are represented as an array of strings
         // This logic should be tailored to match the actual representation of field options
@@ -70,17 +65,16 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
             self.conflict = "Conflict"
         }
     }
-    
-    func setPriorityBasedOnKind() {
-            if kind == "checkbox" || kind == "date" || kind == "email" || kind == "phone_number"
-                || kind == "rich_text" || kind == "title" || kind == "url"
-                || kind == "multi_select" || kind == "select" || kind == "status" {
-                self.priority = FieldPriority.optional.rawValue
-            } else {
-                self.priority = FieldPriority.skip.rawValue
-            }
-        }
 
+    func setPriorityBasedOnKind() {
+        if kind == "checkbox" || kind == "date" || kind == "email" || kind == "phone_number"
+            || kind == "rich_text" || kind == "title" || kind == "url"
+            || kind == "multi_select" || kind == "select" || kind == "status" {
+            self.priority = FieldPriority.optional.rawValue
+        } else {
+            self.priority = FieldPriority.skip.rawValue
+        }
+    }
 }
 
 class TemplateViewModel: ObservableObject {
@@ -107,6 +101,5 @@ class TemplateViewModel: ObservableObject {
             return []
         }
     }
-    
 }
 

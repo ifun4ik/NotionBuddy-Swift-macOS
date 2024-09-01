@@ -42,8 +42,13 @@ struct CaptureView: View {
 
     @State private var lastClickedField: UUID?
     @State private var lastClickTime: Date = Date()
-
+    let databaseService: DatabaseService
     var accessToken: String
+    
+    init(accessToken: String) {
+        self.accessToken = accessToken
+        self.databaseService = DatabaseService(accessToken: accessToken)
+    }
     
     private var filteredTemplates: [Template] {
         return templates.filter {
@@ -642,10 +647,13 @@ struct CaptureView: View {
                     }
                 case "relation":
                     if let relationDict = propertyDict["relation"] as? [String: Any],
-                        let databaseId = relationDict["database_id"] as? String {
-                        fetchPageTitles(for: databaseId) { pageTitles in
+                       let databaseId = relationDict["database_id"] as? String {
+                        databaseService.fetchRelatedDatabaseTitles(for: databaseId) { pageTitles in
                             DispatchQueue.main.async {
-                                self.optionsForFields[key] = pageTitles.map { $0.value }
+                                self.optionsForFields[key] = Array(pageTitles.values)
+                                if let field = self.displayFields.first(where: { $0.name == key }) {
+                                    field.relationOptions = pageTitles
+                                }
                             }
                         }
                     }
@@ -777,7 +785,7 @@ struct CaptureView: View {
                     }
 
                 case 125, 126:  // Down and Up arrow keys
-                    if ["select", "multi_select", "status", "checkbox"].contains(activeField.kind) {
+                    if ["select", "multi_select", "status", "checkbox", "relation"].contains(activeField.kind) {
                         handleArrowKeyEventsForSelectFields(event.keyCode, filteredOptions: filteredOptions)
                     }
 
@@ -898,7 +906,7 @@ struct CaptureView: View {
 
     private func handleArrowKeyEvents(_ event: NSEvent, for activeField: EditableTemplateFieldViewData) {
         switch activeField.kind {
-        case "select", "status":
+        case "select", "status", "relation":
             handleSelectFieldKeyEvent(keyCode: event.keyCode, for: activeField)
         case "multi_select":
             handleMultiSelectFieldKeyEvent(keyCode: event.keyCode)
@@ -1065,6 +1073,10 @@ struct CaptureView: View {
         case "date":
             let dateText = recognizedDate != nil ? recognizedDateText : capturedText
             capturedData[activeField.name] = dateText
+        case "relation":
+           if let selectedOption = optionsForFields[activeField.name]?[safe: activeOptionIndex] {
+               capturedData[activeField.name] = selectedOption
+           }
         default:
             capturedData[activeField.name] = capturedText.isEmpty ? (activeField.defaultValue ?? "") : capturedText
         }
@@ -1189,6 +1201,14 @@ struct CaptureView: View {
             case "multi_select":
                 let options = fieldValue.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
                 properties[fieldName] = ["multi_select": options.map { ["name": $0] }]
+            case "relation":
+                if let relationOptions = fieldData.relationOptions,
+                let relationId = relationOptions.first(where: { $0.value == fieldValue })?.key {
+                    properties[fieldName] = ["relation": [["id": relationId]]]
+                } else {
+                    print("Failed to find relation ID for value: \(fieldValue) in field: \(fieldName)")
+                    print("Available options: \(fieldData.relationOptions ?? [:])")
+                }
             default:
                 print("Unhandled field type: \(fieldData.kind ?? "unknown") for field: \(fieldName)")
             }
@@ -1486,8 +1506,6 @@ struct CaptureView: View {
             case "url":
                 // Store the URL regardless of validation
                 capturedData[activeField.name] = newValue
-//            case "multi_select":
-//                filterText = newValue
 //                activeOptionIndex = 0
             case "select", "status":
                 filterText = newValue
@@ -1496,6 +1514,11 @@ struct CaptureView: View {
             case "checkbox":
                 filterText = newValue
                 activeOptionIndex = 0
+            case "relation":
+                capturedData[activeField.name] = newValue
+                if let options = optionsForFields[activeField.name] {
+                    activeOptionIndex = options.firstIndex(of: newValue) ?? 0
+                }
             default:
                 // For text and other types, store as is
                 capturedData[activeField.name] = newValue

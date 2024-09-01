@@ -18,7 +18,7 @@
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="kind" optional="YES" attributeType="String"/>
         <attribute name="name" optional="YES" attributeType="String"/>
-        <attribute name="options" optional="YES" attributeType="Transformable" valueTransformerName="StringArrayTransformer"/>
+        <attribute name="options" optional="YES" attributeType="Binary" valueTransformerName="StringArrayTransformer"/>
         <attribute name="order" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="priority" optional="YES" attributeType="String"/>
         <relationship name="template" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Template" inverseName="fields" inverseEntity="Template"/>

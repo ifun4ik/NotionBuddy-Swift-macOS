@@ -2,7 +2,7 @@ import SwiftUI
 import CoreData
 
 struct EditTemplateView: View {
-    @StateObject var viewModel: TemplateViewModel
+    @StateObject private var viewModel: TemplateViewModel
     @Environment(\.managedObjectContext) private var managedObjectContext
     @Environment(\.presentationMode) var presentationMode
     @State private var conflicts: [String] = []
@@ -11,7 +11,14 @@ struct EditTemplateView: View {
     @State private var draggedItem: EditableTemplateFieldViewData?
     @State private var draggedOffset: CGFloat = 0
     
-    var accessToken: String
+    let accessToken: String
+    let databaseService: DatabaseService
+    
+    init(template: Template, accessToken: String) {
+        self._viewModel = StateObject(wrappedValue: TemplateViewModel(template: template))
+        self.accessToken = accessToken
+        self.databaseService = DatabaseService(accessToken: accessToken)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -185,13 +192,20 @@ struct EditTemplateView: View {
             }
             
             if fieldViewData.kind == "relation" {
-                newField.options = nil
+                if let relationOptions = fieldViewData.relationOptions {
+                    do {
+                        let jsonData = try JSONEncoder().encode(relationOptions)
+                        newField.options = jsonData
+                    } catch {
+                        print("Failed to encode relation options: \(error)")
+                    }
+                }
             } else if let options = fieldViewData.options {
                 do {
-                    let data = try NSKeyedArchiver.archivedData(withRootObject: options, requiringSecureCoding: false) as NSData
-                    newField.options = data
+                    let jsonData = try JSONEncoder().encode(options)
+                    newField.options = jsonData
                 } catch {
-                    print("Failed to archive options: \(error)")
+                    print("Failed to encode options: \(error)")
                 }
             }
             
@@ -286,89 +300,81 @@ struct EditTemplateView: View {
     }
     
     func resetTemplateToNotion() {
-        // 1. Delete old fields from the managedObjectContext
-        if let oldFields = viewModel.template.fields as? Set<TemplateField> {
-            for oldField in oldFields {
-                managedObjectContext.delete(oldField)
-                print("🗑️ Removed \(oldField.name ?? "Unknown Field")")
-            }
-        }
-        
-        // 2. Save the context after deleting
-        do {
-            try managedObjectContext.save()
-        } catch {
-            print("Failed to delete old fields: \(error)")
-        }
-        
-        // 3. Create new fields based on fetchedProps
-        var newTemplateFields: [EditableTemplateFieldViewData] = []
-        
-        for (key, fetchedValue) in fetchedProps {
-            if let fetchedDict = fetchedValue as? [String: Any] {
-                let kind = fetchedDict["type"] as? String ?? ""
-                let options = (fetchedDict["options"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
-                
-                var defaultValue: String = ""
-                if let firstOption = options?.first {
-                    defaultValue = firstOption
-                }
-                
-                let newField = EditableTemplateFieldViewData(templateField: TemplateField(context: managedObjectContext))
-                newField.kind = kind
-                newField.name = key
-                newField.options = options
-                newField.setPriorityBasedOnKind()
-                
-                // Logic to maintain disabled fields
-                if let existingField = viewModel.templateFields.first(where: { $0.name == key }) {
-                    newField.defaultValue = existingField.defaultValue
-                } else {
-                    newField.defaultValue = defaultValue
-                }
-                
-                if let options = newField.options, !options.contains(where: { $0 == newField.defaultValue }) {
-                    newField.defaultValue = options.first ?? ""
-                }
-                newTemplateFields.append(newField)
-            } else if let fetchedArray = fetchedValue as? [String] {
-                // Handle fields represented as arrays
-                let newField = EditableTemplateFieldViewData(templateField: TemplateField(context: managedObjectContext))
-                newField.kind = "select"  // Assuming fields represented as arrays are of kind "select"
-                newField.name = key
-                newField.options = fetchedArray
-                newField.setPriorityBasedOnKind()
-                
-                // Logic to maintain disabled fields
-                if let existingField = viewModel.templateFields.first(where: { $0.name == key }) {
-                    newField.defaultValue = existingField.defaultValue
-                } else {
-                    newField.defaultValue = fetchedArray.first ?? ""
-                }
-                
-                if let options = newField.options, !options.contains(where: { $0 == newField.defaultValue }) {
-                    newField.defaultValue = options.first ?? ""
-                }
-                newTemplateFields.append(newField)
-            }
-        }
-        
-        // 4. Update the viewModel.templateFields with our new fields
-        viewModel.templateFields = newTemplateFields
-        
-        // 5. Save the context after adding new fields
-        managedObjectContext.perform {
-            do {
-                try managedObjectContext.save()
-                conflicts.removeAll()
-                DispatchQueue.main.async {
-                    self.forceRefresh.toggle()
-                }
-            } catch {
-                print("Failed to reset template: \(error)")
-            }
+    if let oldFields = viewModel.template.fields as? Set<TemplateField> {
+        for oldField in oldFields {
+            managedObjectContext.delete(oldField)
+            print("🗑️ Removed \(oldField.name ?? "Unknown Field")")
         }
     }
+    
+    do {
+        try managedObjectContext.save()
+    } catch {
+        print("Failed to delete old fields: \(error)")
+    }
+    
+    var newTemplateFields: [EditableTemplateFieldViewData] = []
+    
+    for (key, fetchedValue) in fetchedProps {
+        if let fetchedDict = fetchedValue as? [String: Any] {
+            let kind = fetchedDict["type"] as? String ?? ""
+            let options = (fetchedDict["options"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
+            
+            var defaultValue: String = ""
+            if let firstOption = options?.first {
+                defaultValue = firstOption
+            }
+            
+            let newField = EditableTemplateFieldViewData(templateField: TemplateField(context: managedObjectContext))
+            newField.kind = kind
+            newField.name = key
+            newField.options = options
+            newField.setPriorityBasedOnKind()
+            
+            if let existingField = viewModel.templateFields.first(where: { $0.name == key }) {
+                newField.defaultValue = existingField.defaultValue
+            } else {
+                newField.defaultValue = defaultValue
+            }
+            
+            if let options = newField.options, !options.contains(where: { $0 == newField.defaultValue }) {
+                newField.defaultValue = options.first ?? ""
+            }
+            newTemplateFields.append(newField)
+        } else if let fetchedArray = fetchedValue as? [String] {
+            let newField = EditableTemplateFieldViewData(templateField: TemplateField(context: managedObjectContext))
+            newField.kind = "select"
+            newField.name = key
+            newField.options = fetchedArray
+            newField.setPriorityBasedOnKind()
+            
+            if let existingField = viewModel.templateFields.first(where: { $0.name == key }) {
+                newField.defaultValue = existingField.defaultValue
+            } else {
+                newField.defaultValue = fetchedArray.first ?? ""
+            }
+            
+            if let options = newField.options, !options.contains(where: { $0 == newField.defaultValue }) {
+                newField.defaultValue = options.first ?? ""
+            }
+            newTemplateFields.append(newField)
+        }
+    }
+    
+    viewModel.templateFields = newTemplateFields
+    
+    managedObjectContext.perform {
+        do {
+            try managedObjectContext.save()
+            conflicts.removeAll()
+            DispatchQueue.main.async {
+                self.forceRefresh.toggle()
+            }
+        } catch {
+            print("Failed to reset template: \(error)")
+        }
+    }
+}
     
     func fetchOptions(fetchedData: [String: Any]) {
         for (key, fetchedValue) in fetchedData {
@@ -405,12 +411,13 @@ struct EditTemplateView: View {
                     
                     // Handle relation fields
                     if templateField.kind == "relation", let relationDict = fetchedDict["relation"] as? [String: Any],
-                        let databaseId = relationDict["database_id"] as? String {
-                            fetchRelatedDatabaseTitles(for: databaseId) { titles in
-                                DispatchQueue.main.async {
-                                    templateField.options = Array(titles.values)
-                                    templateField.defaultValue = titles.values.first ?? ""
-                                }
+                       let databaseId = relationDict["database_id"] as? String {
+                        fetchRelatedDatabaseTitles(for: databaseId) { titles in
+                            DispatchQueue.main.async {
+                                templateField.relationOptions = titles
+                                templateField.options = Array(titles.values)
+                                templateField.defaultValue = titles.values.first ?? ""
+                            }
                         }
                     }
                 }
@@ -419,52 +426,11 @@ struct EditTemplateView: View {
     }
     
     func fetchRelatedDatabaseTitles(for databaseId: String, completion: @escaping ([String: String]) -> Void) {
-        guard let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)/query") else {
-            completion([:])
-            return
+        databaseService.fetchRelatedDatabaseTitles(for: databaseId) { titles in
+            DispatchQueue.main.async {
+                completion(titles)
+            }
         }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.addValue("2021-08-16", forHTTPHeaderField: "Notion-Version")
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("Error fetching related database titles: \(error)")
-                completion([:])
-                return
-            }
-            
-            guard let data = data else {
-                completion([:])
-                return
-            }
-            
-            do {
-                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-                   let results = json["results"] as? [[String: Any]] {
-                    var titles: [String: String] = [:]
-                    for result in results {
-                        if let id = result["id"] as? String,
-                           let properties = result["properties"] as? [String: Any],
-                           let titleProperty = properties.first(where: { $0.value is [String: Any] && ($0.value as? [String: Any])?["title"] is [[String: Any]] }),
-                           let titleArray = (titleProperty.value as? [String: Any])?["title"] as? [[String: Any]],
-                           let firstTitle = titleArray.first,
-                           let plainText = firstTitle["plain_text"] as? String {
-                            titles[id] = plainText
-                        }
-                    }
-                    completion(titles)
-                } else {
-                    completion([:])
-                }
-            } catch {
-                print("Error parsing related database titles: \(error)")
-                completion([:])
-            }
-        }.resume()
     }
 }
 

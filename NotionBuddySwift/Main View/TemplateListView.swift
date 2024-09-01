@@ -52,7 +52,7 @@ struct TemplateListView: View {
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.templates)
         .sheet(item: $selectedTemplate) { template in
-            EditTemplateView(viewModel: TemplateViewModel(template: template), accessToken: viewModel.sessionManager.currentAccount?.accessToken ?? "")
+            EditTemplateView(template: template, accessToken: viewModel.sessionManager.currentAccount?.accessToken ?? "")
                 .environment(\.managedObjectContext, viewModel.managedObjectContext)
         }
     }

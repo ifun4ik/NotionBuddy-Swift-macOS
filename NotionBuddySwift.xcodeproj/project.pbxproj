@@ -22,6 +22,9 @@
 		12BA49102C63DE7800FCBA17 /* DatabaseIconManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BA490F2C63DE7800FCBA17 /* DatabaseIconManager.swift */; };
 		12E6B8F52C5EDF4B001E71CB /* HotKey in Frameworks */ = {isa = PBXBuildFile; productRef = 12E6B8F42C5EDF4B001E71CB /* HotKey */; };
 		12E6B8F72C5EDF5D001E71CB /* SwiftUIIntrospect in Frameworks */ = {isa = PBXBuildFile; productRef = 12E6B8F62C5EDF5D001E71CB /* SwiftUIIntrospect */; };
+		12F97DA32C83D60400A308E5 /* DatabaseServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12F97DA22C83D60400A308E5 /* DatabaseServices.swift */; };
+		12F97DA62C84853C00A308E5 /* Model.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = 12F97DA52C84853C00A308E5 /* Model.xcmappingmodel */; };
+		12F97DA82C8486A000A308E5 /* NSManagedObject+MigrationHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12F97DA72C8486A000A308E5 /* NSManagedObject+MigrationHelpers.swift */; };
 		8D0873372A65CAE9002F54A6 /* TemplateCreatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0873362A65CAE9002F54A6 /* TemplateCreatorView.swift */; };
 		8D1F719A2A649C6100F5C29C /* UserDefaultsLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D1F71992A649C6100F5C29C /* UserDefaultsLogger.swift */; };
 		8D2F263B2AC37E1400BF9364 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D2F263A2AC37E1400BF9364 /* CaptureView.swift */; };
@@ -78,6 +81,10 @@
 		12B6089B2C62B9230061A226 /* ColorExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensions.swift; sourceTree = "<group>"; };
 		12BA490D2C63DE1300FCBA17 /* DatabaseIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseIcon.swift; sourceTree = "<group>"; };
 		12BA490F2C63DE7800FCBA17 /* DatabaseIconManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseIconManager.swift; sourceTree = "<group>"; };
+		12F97DA22C83D60400A308E5 /* DatabaseServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseServices.swift; sourceTree = "<group>"; };
+		12F97DA42C8475E300A308E5 /* NotionBuddySwift 2.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "NotionBuddySwift 2.xcdatamodel"; sourceTree = "<group>"; };
+		12F97DA52C84853C00A308E5 /* Model.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = Model.xcmappingmodel; sourceTree = "<group>"; };
+		12F97DA72C8486A000A308E5 /* NSManagedObject+MigrationHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSManagedObject+MigrationHelpers.swift"; sourceTree = "<group>"; };
 		8D0873362A65CAE9002F54A6 /* TemplateCreatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateCreatorView.swift; sourceTree = "<group>"; };
 		8D1F71992A649C6100F5C29C /* UserDefaultsLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefaultsLogger.swift; sourceTree = "<group>"; };
 		8D2F263A2AC37E1400BF9364 /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
@@ -141,6 +148,7 @@
 				129899492C7214D700763EA8 /* KeyHintView.swift */,
 				8DD1077C2AC4CC390077B935 /* CaptureWindowController.swift */,
 				8D2F263A2AC37E1400BF9364 /* CaptureView.swift */,
+				12F97DA22C83D60400A308E5 /* DatabaseServices.swift */,
 			);
 			path = CaptureView;
 			sourceTree = "<group>";
@@ -222,6 +230,8 @@
 				8D9435B72A3A462000F7CC62 /* Assets.xcassets */,
 				8D9435B92A3A462000F7CC62 /* NotionBuddySwift.entitlements */,
 				8D9435B22A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld */,
+				12F97DA52C84853C00A308E5 /* Model.xcmappingmodel */,
+				12F97DA72C8486A000A308E5 /* NSManagedObject+MigrationHelpers.swift */,
 				8D9435BA2A3A462000F7CC62 /* Preview Content */,
 			);
 			path = NotionBuddySwift;
@@ -399,6 +409,7 @@
 				8D54B6092AC2990700B9B01F /* GlobalShortcutManager.swift in Sources */,
 				8D9435B42A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld in Sources */,
 				12B608982C62B9010061A226 /* TemplateListView.swift in Sources */,
+				12F97DA32C83D60400A308E5 /* DatabaseServices.swift in Sources */,
 				8DF13C332A63475A0030F889 /* MainView.swift in Sources */,
 				8DD1077D2AC4CC390077B935 /* CaptureWindowController.swift in Sources */,
 				12B608942C62B8CF0061A226 /* AccountPickerView.swift in Sources */,
@@ -418,11 +429,13 @@
 				1298994A2C7214D700763EA8 /* KeyHintView.swift in Sources */,
 				12B6089A2C62B90D0061A226 /* NoAccountView.swift in Sources */,
 				8D8B95182A76964100DEDFFF /* EditTemplateView.swift in Sources */,
+				12F97DA62C84853C00A308E5 /* Model.xcmappingmodel in Sources */,
 				12B365172C67CE5600D5E2F5 /* CustomDatePicker.swift in Sources */,
 				8D6207E72B074B0F00A01539 /* StringArrayTransformer.swift in Sources */,
 				12BA49102C63DE7800FCBA17 /* DatabaseIconManager.swift in Sources */,
 				8DEA959E2A7C49910007836F /* TemplateViewModel.swift in Sources */,
 				8DF13C352A6349D00030F889 /* SessionManager.swift in Sources */,
+				12F97DA82C8486A000A308E5 /* NSManagedObject+MigrationHelpers.swift in Sources */,
 				12B6089C2C62B9230061A226 /* ColorExtensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -852,9 +865,10 @@
 		8D9435B22A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
+				12F97DA42C8475E300A308E5 /* NotionBuddySwift 2.xcdatamodel */,
 				8D9435B32A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodel */,
 			);
-			currentVersion = 8D9435B32A3A461F00F7CC62 /* NotionBuddySwift.xcdatamodel */;
+			currentVersion = 12F97DA42C8475E300A308E5 /* NotionBuddySwift 2.xcdatamodel */;
 			path = NotionBuddySwift.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;

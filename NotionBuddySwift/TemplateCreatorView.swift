@@ -19,36 +19,38 @@ class TemplateFieldViewData: ObservableObject, Identifiable {
     @Published var defaultValues: Set<String> = []
     @Published var order: Int16
     @Published var selectedValues: Set<String> = []
-    var options: [String: String]? = nil
+    @Published var options: [String]? = nil
+    @Published var relationOptions: [String: String]? = nil // Add this line
     
     init(
-        name: String,
-        kind: String,
-        defaultValue: String,
-        order: Int16,
-        options: [String: String]? = nil
-    ) {
-        self.name = name
-        self.kind = kind
-        self.defaultValue = defaultValue
-        self.order = order
-        self.options = options
-        if kind == "checkbox" || kind == "date" || kind == "email" || kind == "phone_number"
-            || kind == "rich_text" || kind == "title" || kind == "url"
-            || kind == "multi_select" || kind == "select" || kind == "status"
-        {
-            self.priority = .optional
-        }
-        else {
-            self.priority = .skip
-        }
-    }
+           name: String,
+           kind: String,
+           defaultValue: String,
+           order: Int16,
+           options: [String]? = nil
+       ) {
+           self.name = name
+           self.kind = kind
+           self.defaultValue = defaultValue
+           self.order = order
+           self.options = options
+           if kind == "checkbox" || kind == "date" || kind == "email" || kind == "phone_number"
+               || kind == "rich_text" || kind == "title" || kind == "url"
+               || kind == "multi_select" || kind == "select" || kind == "status"
+           {
+               self.priority = .optional
+           }
+           else {
+               self.priority = .skip
+           }
+       }
 }
 
 struct FieldRow: View {
     @ObservedObject var field: TemplateFieldViewData
     @State private var showMultiSelect = false
     var accessToken: String
+    let databaseService: DatabaseService
     
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -127,25 +129,27 @@ struct FieldRow: View {
                     disabled: field.priority == .skip
                 )
             case "select", "status":
-                CustomDropdown(selection: $field.defaultValue, options: field.options ?? [:])
+                CustomDropdown(selection: $field.defaultValue, options: field.options?.reduce(into: [:]) { $0[$1] = $1 } ?? [:])
                     .disabled(field.priority == .skip)
             case "multi_select":
-                MultiSelectView(options: field.options?.values.map { $0 } ?? [], selectedOptions: Binding(
+                MultiSelectView(options: field.options ?? [], selectedOptions: Binding(
                     get: { Set(field.selectedValues) },
                     set: { newValues in
                         field.selectedValues = newValues
                         field.defaultValue = Array(newValues).joined(separator: ", ")
                     }
-                )) .frame(width: .infinity)
+                ))
+                .frame(width: .infinity)
                 .disabled(field.priority == .skip)
             case "relation":
-                CustomDropdown(selection: $field.defaultValue, options: field.options ?? [:])
+                CustomDropdown(selection: $field.defaultValue, options: field.relationOptions ?? [:])
                     .disabled(field.priority == .skip)
                     .onAppear {
-                        if let databaseId = field.options?.first?.key {
+                        if let databaseId = field.options?.first {
                             fetchRelatedDatabaseTitles(for: databaseId) { titles in
                                 DispatchQueue.main.async {
-                                    field.options = titles
+                                    field.relationOptions = titles
+                                    field.options = Array(titles.values)
                                     field.defaultValue = titles.values.first ?? ""
                                 }
                             }
@@ -170,52 +174,14 @@ struct FieldRow: View {
     }
 
     func fetchRelatedDatabaseTitles(for databaseId: String, completion: @escaping ([String: String]) -> Void) {
-        guard let url = URL(string: "https://api.notion.com/v1/databases/\(databaseId)/query") else {
-            completion([:])
-            return
+        databaseService.fetchRelatedDatabaseTitles(for: databaseId) { titles in
+            DispatchQueue.main.async {
+                self.field.relationOptions = titles
+                self.field.options = Array(titles.values)
+                self.field.defaultValue = titles.values.first ?? ""
+                completion(titles)
+            }
         }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.addValue("2021-08-16", forHTTPHeaderField: "Notion-Version")
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("Error fetching related database titles: \(error)")
-                completion([:])
-                return
-            }
-
-            guard let data = data else {
-                completion([:])
-                return
-            }
-
-            do {
-                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-                   let results = json["results"] as? [[String: Any]] {
-                    var titles: [String: String] = [:]
-                    for result in results {
-                        if let id = result["id"] as? String,
-                           let properties = result["properties"] as? [String: Any],
-                           let titleProperty = properties.first(where: { $0.value is [String: Any] && ($0.value as? [String: Any])?["title"] is [[String: Any]] }),
-                           let titleArray = (titleProperty.value as? [String: Any])?["title"] as? [[String: Any]],
-                           let firstTitle = titleArray.first,
-                           let plainText = firstTitle["plain_text"] as? String {
-                            titles[id] = plainText
-                        }
-                    }
-                    completion(titles)
-                } else {
-                    completion([:])
-                }
-            } catch {
-                print("Error parsing related database titles: \(error)")
-                completion([:])
-            }
-        }.resume()
     }
 }
 
@@ -227,117 +193,134 @@ struct TemplateCreatorView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.presentationMode) var presentationMode
     @State private var showAlert = false
-    @State private var existingNames: [String] = []
+    @State private var existingNames: [String] = [] 
     
     @State private var draggedItem: TemplateFieldViewData?
     @State private var draggedOffset: CGFloat = 0
-
+    let databaseService: DatabaseService
     var accessToken: String
+    
+    init(database: Database, onSave: @escaping () -> Void, accessToken: String) {
+       self.database = database
+       self.onSave = onSave
+       self.accessToken = accessToken
+       self.databaseService = DatabaseService(accessToken: accessToken)
+   }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Title bar
-            HStack {
-                Button(action: {
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(.textPrimary)
-                } .buttonStyle(PlainButtonStyle())
-                    .frame(width: 24, height: 24)
-                
-                Text("\(database.name) Template")
-                    .font(.custom("Onest-Medium", size: 20))
-                    .foregroundColor(.textPrimary)
-                
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-            .background(Color.white)
-            
-            Divider()
-                .overlay(Color.divider)
-            
+            titleBar
+            Divider().overlay(Color.divider)
             ScrollView {
                 VStack(spacing: 16) {
-                    // Template Name
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Template Name")
-                            .font(.custom("Onest-Medium", size: 14))
-                            .foregroundColor(.textSecondary)
-                        
-                        TextField("Enter template name", text: $templateName)
-                            .textFieldStyle(PlainTextFieldStyle())
-                            .font(.custom("Onest-Regular", size: 16))
-                            .foregroundColor(.textPrimary)
-                            .padding(10)
-                            .background(Color.white)
-                            .cornerRadius(6)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(Color.cardStroke, lineWidth: 1)
-                            )
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    
-                    // Template Fields
-                    ForEach(templateFields) { field in
-                        FieldRow(field: field, accessToken: accessToken)
-                            .opacity(draggedItem?.id == field.id ? 0.5 : 1.0)
-                            .offset(y: draggedItem?.id == field.id ? draggedOffset : 0)
-                            .zIndex(draggedItem?.id == field.id ? 1 : 0)
-                            .gesture(
-                                DragGesture()
-                                    .onChanged { value in
-                                        if draggedItem == nil {
-                                            draggedItem = field
-                                        }
-                                        draggedOffset = value.translation.height
-                                    }
-                                    .onEnded { value in
-                                        if let draggedItem = draggedItem,
-                                           let fromIndex = templateFields.firstIndex(where: { $0.id == draggedItem.id }),
-                                           let toIndex = getDestinationIndex(for: value.predictedEndTranslation.height, fromIndex: fromIndex) {
-                                            moveField(from: IndexSet(integer: fromIndex), to: toIndex)
-                                        }
-                                        withAnimation {
-                                            self.draggedItem = nil
-                                            draggedOffset = 0
-                                        }
-                                    }
-                            )
-                    }
+                    templateNameField
+                    templateFieldsList
                 }
                 .padding(.bottom, 16)
             }
-            
-            // Save Template Button
-            Button(action: saveTemplate) {
-                Text("Save Template")
-                    .font(.custom("Onest-Medium", size: 16))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(canSave() ? Color.accentColor : Color.gray)
-                    .cornerRadius(6)
-            }
-            .padding(16)
-            .disabled(!canSave())
+            saveTemplateButton
         }
         .frame(width: 352, height: 480)
         .background(Color.white)
-        .onAppear {
-            existingNames = fetchExistingNames()
-            createFieldViewData(from: database)
-        }
+        .onAppear(perform: onAppear)
         .alert(isPresented: $showAlert) {
             Alert(title: Text("Error"), message: Text("A template with this name already exists."), dismissButton: .default(Text("OK")))
         }
     }
 
+    private var titleBar: some View {
+        HStack {
+            Button(action: { presentationMode.wrappedValue.dismiss() }) {
+                Image(systemName: "chevron.left")
+                    .foregroundColor(.textPrimary)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .frame(width: 24, height: 24)
+            
+            Text("\(database.name) Template")
+                .font(.custom("Onest-Medium", size: 20))
+                .foregroundColor(.textPrimary)
+            
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
+        .background(Color.white)
+    }
+
+    private var templateNameField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Template Name")
+                .font(.custom("Onest-Medium", size: 14))
+                .foregroundColor(.textSecondary)
+            
+            TextField("Enter template name", text: $templateName)
+                .textFieldStyle(PlainTextFieldStyle())
+                .font(.custom("Onest-Regular", size: 16))
+                .foregroundColor(.textPrimary)
+                .padding(10)
+                .background(Color.white)
+                .cornerRadius(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.cardStroke, lineWidth: 1)
+                )
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+    }
+
+    private var templateFieldsList: some View {
+        ForEach(templateFields) { field in
+            FieldRow(field: field, accessToken: accessToken, databaseService: databaseService)
+                .opacity(draggedItem?.id == field.id ? 0.5 : 1.0)
+                .offset(y: draggedItem?.id == field.id ? draggedOffset : 0)
+                .zIndex(draggedItem?.id == field.id ? 1 : 0)
+                .gesture(dragGesture(for: field))
+        }
+    }
+
+    private var saveTemplateButton: some View {
+        Button(action: saveTemplate) {
+            Text("Save Template")
+                .font(.custom("Onest-Medium", size: 16))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(canSave() ? Color.accentColor : Color.gray)
+                .cornerRadius(6)
+        }
+        .padding(16)
+        .disabled(!canSave())
+    }
+
+    private func dragGesture(for field: TemplateFieldViewData) -> some Gesture {
+        DragGesture()
+            .onChanged { value in
+                if draggedItem == nil {
+                    draggedItem = field
+                }
+                draggedOffset = value.translation.height
+            }
+            .onEnded { value in
+                if let draggedItem = draggedItem,
+                   let fromIndex = templateFields.firstIndex(where: { $0.id == draggedItem.id }),
+                   let toIndex = getDestinationIndex(for: value.predictedEndTranslation.height, fromIndex: fromIndex) {
+                    moveField(from: IndexSet(integer: fromIndex), to: toIndex)
+                }
+                withAnimation {
+                    self.draggedItem = nil
+                    draggedOffset = 0
+                }
+            }
+    }
+
+    private func onAppear() {
+        existingNames = fetchExistingNames()
+        createFieldViewData(from: database)
+    }
+    
     private func getDestinationIndex(for offsetY: CGFloat, fromIndex: Int) -> Int? {
         let rowHeight: CGFloat = 100 // Approximate height of a FieldRow
         let moveThreshold: CGFloat = rowHeight / 2
@@ -372,24 +355,18 @@ struct TemplateCreatorView: View {
             var skipPriorityFields: [TemplateFieldViewData] = []
 
             for (name, property) in properties {
-                var options: [String: String] = [:]
+                var options: [String]? = nil
 
                 switch property.type {
                 case "select":
-                    options = property.select?.options.reduce(into: [:]) { result, option in
-                        result[option.id] = option.name
-                    } ?? [:]
+                    options = property.select?.options.map { $0.name }
                 case "multi_select":
-                    options = property.multi_select?.options.reduce(into: [:]) { result, option in
-                        result[option.id] = option.name
-                    } ?? [:]
+                    options = property.multi_select?.options.map { $0.name }
                 case "status":
-                    options = property.status?.options.reduce(into: [:]) { result, option in
-                        result[option.id] = option.name
-                    } ?? [:]
+                    options = property.status?.options.map { $0.name }
                 case "relation":
                     if let databaseId = property.relation?.database_id {
-                        options = [databaseId: "Loading..."]
+                        options = [databaseId]
                     }
                 default:
                     break
@@ -400,7 +377,7 @@ struct TemplateCreatorView: View {
                     kind: property.type,
                     defaultValue: "",
                     order: Int16(templateFields.count),
-                    options: options.isEmpty ? nil : options
+                    options: options
                 )
 
                 if fieldViewData.priority == .skip {
@@ -426,7 +403,7 @@ struct TemplateCreatorView: View {
         newTemplate.order = Int16(templateFields.count)
         newTemplate.databaseId = database.id
         newTemplate.databaseName = database.name
-
+        
         for fieldViewData in templateFields {
             let newField = TemplateField(context: viewContext)
             newField.id = fieldViewData.id
@@ -436,26 +413,24 @@ struct TemplateCreatorView: View {
             newField.priority = fieldViewData.priority.rawValue
             newField.kind = fieldViewData.kind
             
-            if fieldViewData.kind == "multi_select" {
-                let selectedValues = Array(fieldViewData.selectedValues)
-                if let jsonData = try? JSONEncoder().encode(selectedValues) {
-                    newField.defaultValue = String(data: jsonData, encoding: .utf8) ?? ""
+            if fieldViewData.kind == "relation" {
+                if let relationOptions = fieldViewData.relationOptions {
+                    do {
+                        let jsonData = try JSONEncoder().encode(relationOptions)
+                        newField.options = jsonData
+                    } catch {
+                        print("Failed to encode relation options: \(error)")
+                    }
                 }
-            } else if fieldViewData.kind == "relation" {
-                newField.defaultValue = fieldViewData.defaultValue
-            } else {
-                newField.defaultValue = fieldViewData.defaultValue
+            } else if let options = fieldViewData.options {
+                do {
+                    let jsonData = try JSONEncoder().encode(options)
+                    newField.options = jsonData
+                } catch {
+                    print("Failed to encode options: \(error)")
+                }
             }
             
-            if let options = fieldViewData.options {
-                do {
-                    let data = try NSKeyedArchiver.archivedData(withRootObject: options, requiringSecureCoding: false) as NSData
-                    newField.options = data
-                } catch {
-                    print("Failed to archive options: \(error)")
-                }
-            }
-
             newTemplate.addToFields(newField)
         }
         
