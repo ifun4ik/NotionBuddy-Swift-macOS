@@ -194,7 +194,7 @@ struct CaptureView: View {
                         }
                         .onAppear {
                             var capturedDataCopy = capturedData
-                            capturedDataCopy = [:]
+                            capturedDataCopy = Dictionary(uniqueKeysWithValues: displayFields.map { ($0.name, $0.defaultValue ?? "") })
                             setupKeyEventHandling()
                             capturedData = capturedDataCopy
                         }
@@ -1169,7 +1169,12 @@ struct CaptureView: View {
 
         for fieldData in displayFields {
             let fieldName = fieldData.name
-            let fieldValue = capturedData[fieldName] ?? ""
+            var fieldValue = capturedData[fieldName] ?? ""
+            
+            // Use default value if the field is empty
+            if fieldValue.isEmpty {
+                fieldValue = fieldData.defaultValue ?? ""
+            }
             
             if fieldValue.isEmpty { continue }
 
@@ -1306,7 +1311,7 @@ struct CaptureView: View {
         capturedText = ""
         selectedIndex = nil
         filledFields = []
-        capturedData = [:] // Reset captured data for the new template
+        capturedData = Dictionary(uniqueKeysWithValues: displayFields.map { ($0.name, $0.defaultValue ?? "") }) // Reset captured data for the new template
         fieldActiveOptionIndices = [:] // Reset active option indices
         
         // Fetch options for all fields at once

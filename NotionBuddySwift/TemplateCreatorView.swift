@@ -129,7 +129,9 @@ struct FieldRow: View {
                     disabled: field.priority == .skip
                 )
             case "select", "status":
-                CustomDropdown(selection: $field.defaultValue, options: field.options?.reduce(into: [:]) { $0[$1] = $1 } ?? [:])
+                CustomDropdown(selection: $field.defaultValue,
+                               options: field.options?.reduce(into: [String: String]()) { $0[$1] = $1 } ?? [:],
+                               placeholder: "Select")
                     .disabled(field.priority == .skip)
             case "multi_select":
                 MultiSelectView(options: field.options ?? [], selectedOptions: Binding(
@@ -142,7 +144,7 @@ struct FieldRow: View {
                 .frame(width: .infinity)
                 .disabled(field.priority == .skip)
             case "relation":
-                CustomDropdown(selection: $field.defaultValue, options: field.relationOptions ?? [:])
+                CustomDropdown(selection: $field.defaultValue, options: field.relationOptions ?? [:], placeholder: "Select")
                     .disabled(field.priority == .skip)
                     .onAppear {
                         if let databaseId = field.options?.first {
@@ -408,12 +410,20 @@ struct TemplateCreatorView: View {
             let newField = TemplateField(context: viewContext)
             newField.id = fieldViewData.id
             newField.name = fieldViewData.name
-            newField.defaultValue = fieldViewData.defaultValue
             newField.order = fieldViewData.order
             newField.priority = fieldViewData.priority.rawValue
             newField.kind = fieldViewData.kind
             
-            if fieldViewData.kind == "relation" {
+            // Handle default values based on field type
+            switch fieldViewData.kind {
+            case "multi_select":
+                if let jsonData = try? JSONEncoder().encode(fieldViewData.selectedValues) {
+                    newField.defaultValue = String(data: jsonData, encoding: .utf8) ?? ""
+                }
+            case "select", "status":
+                newField.defaultValue = fieldViewData.defaultValue == "Select" ? "" : fieldViewData.defaultValue
+            case "relation":
+                newField.defaultValue = fieldViewData.defaultValue
                 if let relationOptions = fieldViewData.relationOptions {
                     do {
                         let jsonData = try JSONEncoder().encode(relationOptions)
@@ -422,12 +432,19 @@ struct TemplateCreatorView: View {
                         print("Failed to encode relation options: \(error)")
                     }
                 }
-            } else if let options = fieldViewData.options {
-                do {
-                    let jsonData = try JSONEncoder().encode(options)
-                    newField.options = jsonData
-                } catch {
-                    print("Failed to encode options: \(error)")
+            default:
+                newField.defaultValue = fieldViewData.defaultValue
+            }
+            
+            // Save options for select, multi_select, status fields
+            if ["select", "multi_select", "status"].contains(fieldViewData.kind) {
+                if let options = fieldViewData.options {
+                    do {
+                        let jsonData = try JSONEncoder().encode(options)
+                        newField.options = jsonData
+                    } catch {
+                        print("Failed to encode options: \(error)")
+                    }
                 }
             }
             
@@ -444,17 +461,8 @@ struct TemplateCreatorView: View {
         }
     }
     
-    func canSave() -> Bool {
-        return !templateName.isEmpty && allMandatoryFieldsHaveDefaultValue()
-    }
-    
-    func allMandatoryFieldsHaveDefaultValue() -> Bool {
-        for field in templateFields {
-            if field.priority == .mandatory && field.defaultValue.isEmpty {
-                return false
-            }
-        }
-        return true
+    private func canSave() -> Bool {
+        return !templateName.isEmpty
     }
 }
 
@@ -605,6 +613,7 @@ struct CustomSegmentedPicker: View {
 struct CustomDropdown: View {
     @Binding var selection: String
     let options: [String: String]
+    let placeholder: String
     @State private var isExpanded = false
     
     var body: some View {
@@ -615,9 +624,9 @@ struct CustomDropdown: View {
                 }
             }) {
                 HStack {
-                    Text(options[selection] ?? selection)
+                    Text(selection.isEmpty ? placeholder : (options[selection] ?? selection))
                         .font(.custom("Onest-Regular", size: 16))
-                        .foregroundColor(.textPrimary)
+                        .foregroundColor(selection.isEmpty ? .textSecondary : .textPrimary)
                     Spacer()
                     Image(systemName: "chevron.down")
                         .foregroundColor(.textSecondary)
@@ -636,6 +645,24 @@ struct CustomDropdown: View {
             if isExpanded {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
+                        Button(action: {
+                            selection = ""
+                            withAnimation {
+                                isExpanded = false
+                            }
+                        }) {
+                            HStack {
+                                Text("Clear")
+                                    .font(.custom("Onest-Regular", size: 16))
+                                    .foregroundColor(.textPrimary)
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(selection.isEmpty ? Color.bgSecondary : Color.clear)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
                         ForEach(Array(options.keys.sorted()), id: \.self) { key in
                             Button(action: {
                                 selection = key
@@ -657,7 +684,7 @@ struct CustomDropdown: View {
                         }
                     }
                 }
-                .frame(height: min(CGFloat(options.count) * 44, 200))
+                .frame(height: min(CGFloat(options.count + 1) * 44, 200))
                 .background(Color.white)
                 .cornerRadius(8)
                 .overlay(

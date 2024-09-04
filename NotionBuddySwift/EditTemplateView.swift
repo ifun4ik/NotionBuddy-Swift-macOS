@@ -153,16 +153,11 @@ struct EditTemplateView: View {
     }
     
     func canSave() -> Bool {
-        return !viewModel.templateName.isEmpty && allMandatoryFieldsHaveDefaultValue()
+        return !viewModel.templateName.isEmpty
     }
     
     func allMandatoryFieldsHaveDefaultValue() -> Bool {
-        for field in viewModel.templateFields {
-            if field.priority == "mandatory" && field.defaultValue.isEmpty {
-                return false
-            }
-        }
-        return true
+        return true // This function is no longer needed, but kept for backwards compatibility
     }
     
     func updateTemplate() {
@@ -188,7 +183,11 @@ struct EditTemplateView: View {
                     newField.defaultValue = String(data: jsonData, encoding: .utf8) ?? ""
                 }
             } else {
-                newField.defaultValue = fieldViewData.defaultValue
+                if ["select", "status"].contains(fieldViewData.kind) && fieldViewData.defaultValue == "Select" {
+                    newField.defaultValue = ""
+                } else {
+                    newField.defaultValue = fieldViewData.defaultValue
+                }
             }
             
             if fieldViewData.kind == "relation" {
@@ -514,7 +513,12 @@ struct EditTemplateView: View {
                         disabled: field.priority == "skip"
                     )
                 case "select", "status":
-                    CustomDropdown(selection: $field.defaultValue, options: field.options?.reduce(into: [String: String]()) { $0[$1] = $1 } ?? [:])
+                    CustomDropdown(selection: Binding(
+                        get: { field.defaultValue.isEmpty ? "Select" : field.defaultValue },
+                        set: { field.defaultValue = $0 == "Select" ? "" : $0 }
+                    ),
+                    options: field.options?.reduce(into: [String: String]()) { $0[$1] = $1 } ?? [:],
+                    placeholder: "Select")
                         .disabled(field.priority == "skip")
                 case "multi_select":
                     MultiSelectView(options: field.options ?? [], selectedOptions: Binding(
@@ -526,7 +530,7 @@ struct EditTemplateView: View {
                     )) .frame(width: .infinity)
                     .disabled(field.priority == "skip")
                 case "relation":
-                    CustomDropdown(selection: $field.defaultValue, options: field.options?.reduce(into: [String: String]()) { $0[$1] = $1 } ?? [:])
+                    CustomDropdown(selection: $field.defaultValue, options: field.options?.reduce(into: [String: String]()) { $0[$1] = $1 } ?? [:], placeholder: "Select")
                         .disabled(field.priority == "skip")
                 default:
                     TextField("Default Value", text: $field.defaultValue)
