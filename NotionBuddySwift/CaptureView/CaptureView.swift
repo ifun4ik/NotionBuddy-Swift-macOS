@@ -45,6 +45,11 @@ struct CaptureView: View {
     let databaseService: DatabaseService
     var accessToken: String
     
+    @State private var userFilledFields: Set<String> = []
+    
+    @State private var fieldUpdateTrigger: Bool = false
+    @State private var lastUpdatedField: String?
+    
     init(accessToken: String) {
         self.accessToken = accessToken
         self.databaseService = DatabaseService(accessToken: accessToken)
@@ -223,6 +228,7 @@ struct CaptureView: View {
                             ForEach(Array(displayFields.enumerated()), id: \.element.id) { index, field in
                                 HStack(spacing: 16) {
                                     iconForField(field: field, index: index)
+                                        .id("\(field.id)-\(fieldUpdateTrigger)-\(lastUpdatedField == field.name ? "updated" : "not")-\(capturedData[field.name] ?? "")")
                                     
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(field.name)
@@ -316,8 +322,8 @@ struct CaptureView: View {
         moveToNextFieldOrFinish()  // Move to the next field
     }
     
+
     
-       
     private func handleFieldTap(index: Int, fieldId: UUID) {
         let now = Date()
         if activeFieldIndex == index && lastClickedField == fieldId && now.timeIntervalSince(lastClickTime) < 0.3 {
@@ -368,6 +374,8 @@ struct CaptureView: View {
         updatePlaceholder()
         updateMultiSelectOnFieldChange(newIndex: index)
         capturedText = "" // Reset input on field switch
+        fieldUpdateTrigger.toggle()
+        lastUpdatedField = displayFields[index].name
     }
 
     private func selectField(field: EditableTemplateFieldViewData, index: Int) {
@@ -391,6 +399,8 @@ struct CaptureView: View {
                        if let first = newValue.first {
                            capturedData[field.name] = first
                            capturedText = first
+                           fieldUpdateTrigger.toggle()
+                           lastUpdatedField = field.name
                        }
                    }
                )
@@ -400,6 +410,12 @@ struct CaptureView: View {
                    set: { newValue in
                        if let first = newValue.first {
                            capturedText = first
+                           capturedData[field.name] = first
+                           if field.kind == "select" || field.kind == "status" {
+                               userFilledFields.insert(field.name)
+                           }
+                           fieldUpdateTrigger.toggle()
+                           lastUpdatedField = field.name
                        }
                    }
                )
@@ -454,7 +470,12 @@ struct CaptureView: View {
         } else {
             capturedData[activeField.name] = selectedOptions.first ?? ""
             capturedText = selectedOptions.first ?? ""
+            if activeField.kind == "select" || activeField.kind == "status" {
+                userFilledFields.insert(activeField.name)
+            }
         }
+        fieldUpdateTrigger.toggle()
+        lastUpdatedField = activeField.name
     }
     
     private func getTextFieldColor() -> Color {
@@ -1044,15 +1065,43 @@ struct CaptureView: View {
         case "multi_select":
             selectedMultiOptions = parseArrayString(capturedData[newField.name] ?? "")
             capturedText = "" // Clear the input text for multi-select
+            if !selectedMultiOptions.isEmpty {
+                userFilledFields.insert(newField.name)
+            } else {
+                userFilledFields.remove(newField.name)
+            }
         case "select", "status", "checkbox":
             capturedText = capturedData[newField.name] ?? ""
             if let options = optionsForFields[newField.name] {
                 activeOptionIndex = fieldActiveOptionIndices[newField.name] ?? 0
+                if options.contains(capturedText) {
+                    userFilledFields.insert(newField.name)
+                } else {
+                    userFilledFields.remove(newField.name)
+                }
             } else {
                 activeOptionIndex = 0
             }
+        case "select", "status":
+            capturedText = capturedData[newField.name] ?? ""
+            if let options = optionsForFields[newField.name] {
+                activeOptionIndex = options.firstIndex(of: capturedText) ?? 0
+                if options.contains(capturedText) && capturedText != (newField.defaultValue as? String ?? "") {
+                    userFilledFields.insert(newField.name)
+                } else {
+                    userFilledFields.remove(newField.name)
+                }
+            } else {
+                activeOptionIndex = 0
+                userFilledFields.remove(newField.name)
+            }
         default:
             capturedText = capturedData[newField.name] ?? ""
+            if capturedText != (newField.defaultValue as? String ?? "") && !capturedText.isEmpty {
+                userFilledFields.insert(newField.name)
+            } else {
+                userFilledFields.remove(newField.name)
+            }
         }
         
         filterText = ""
@@ -1306,6 +1355,7 @@ struct CaptureView: View {
     
 
     func commitTemplate(_ template: Template) {
+        userFilledFields.removeAll()
         committedTemplate = template
         activeFieldIndex = 0
         capturedText = ""
@@ -1321,7 +1371,7 @@ struct CaptureView: View {
         
         // Set initial values for the first field
         if let firstField = displayFields.first {
-            if ["select", "multi_select", "status"].contains(firstField.kind) {
+            if ["select", "multi_select", "status"].contains(firstField.name) {
                 if let options = optionsForFields[firstField.name], !options.isEmpty {
                     capturedText = options[0]
                     capturedData[firstField.name] = options[0]
@@ -1490,44 +1540,80 @@ struct CaptureView: View {
         return false
     }
 
-    
     private func handleCapturedTextChange(_ newValue: String) {
         if let activeField = getActiveField() {
+            let defaultValue = activeField.defaultValue as? String ?? ""
+            let isUserInput = newValue != defaultValue && !newValue.isEmpty
+
             switch activeField.kind {
+            case "select", "multi_select", "status":
+                filterText = newValue
+                capturedData[activeField.name] = newValue
+                if let options = optionsForFields[activeField.name],
+                   options.contains(newValue) {
+                    userFilledFields.insert(activeField.name)
+                } else {
+                    userFilledFields.remove(activeField.name)
+                }
+                // Force update for select, multi-select, and status fields
+                fieldUpdateTrigger.toggle()
+                lastUpdatedField = activeField.name
+            case "relation":
+                capturedData[activeField.name] = newValue
+                if let options = optionsForFields[activeField.name],
+                   options.contains(newValue) {
+                    userFilledFields.insert(activeField.name)
+                } else {
+                    userFilledFields.remove(activeField.name)
+                }
+                // Force update for relation fields
+                fieldUpdateTrigger.toggle()
+                lastUpdatedField = activeField.name
             case "date":
                 recognizedDate = detectDate(from: newValue)
                 if let date = recognizedDate {
                     recognizedDateText = notionAPICompatibleDateString(from: date)
+                    if isUserInput {
+                        userFilledFields.insert(activeField.name)
+                    }
                 } else {
                     recognizedDateText = ""
+                    userFilledFields.remove(activeField.name)
                 }
             case "number":
-                // Only allow numeric input
                 let numericValue = newValue.filter { $0.isNumber || $0 == "." }
                 capturedData[activeField.name] = numericValue
-            case "email":
-                // Store the email regardless of validation
+                if isUserInput {
+                    userFilledFields.insert(activeField.name)
+                } else {
+                    userFilledFields.remove(activeField.name)
+                }
+            case "email", "url":
                 capturedData[activeField.name] = newValue
-            case "url":
-                // Store the URL regardless of validation
-                capturedData[activeField.name] = newValue
-//                activeOptionIndex = 0
-            case "select", "status":
-                filterText = newValue
-                activeOptionIndex = 0
-                capturedData[activeField.name] = newValue
+                if isUserInput {
+                    userFilledFields.insert(activeField.name)
+                } else {
+                    userFilledFields.remove(activeField.name)
+                }
             case "checkbox":
                 filterText = newValue
                 activeOptionIndex = 0
-            case "relation":
-                capturedData[activeField.name] = newValue
-                if let options = optionsForFields[activeField.name] {
-                    activeOptionIndex = options.firstIndex(of: newValue) ?? 0
+                if (newValue.lowercased() == "true" || newValue.lowercased() == "false") && isUserInput {
+                    userFilledFields.insert(activeField.name)
+                } else {
+                    userFilledFields.remove(activeField.name)
                 }
             default:
-                // For text and other types, store as is
-                capturedData[activeField.name] = newValue
+                if isUserInput {
+                    userFilledFields.insert(activeField.name)
+                } else {
+                    userFilledFields.remove(activeField.name)
+                }
             }
+            
+            // General update trigger
+            fieldUpdateTrigger.toggle()
+            lastUpdatedField = activeField.name
         }
     }
 
@@ -1538,7 +1624,6 @@ struct CaptureView: View {
         return emailTest.evaluate(with: email)
     }
 
-    
     private func formatAsDate(_ input: String) -> String {
         var cleanedInput = input.filter { "0123456789".contains($0) }
         if cleanedInput.count > 8 { cleanedInput = String(cleanedInput.prefix(8)) }
@@ -1562,7 +1647,6 @@ struct CaptureView: View {
         return formattedDate
     }
 
-
     private func notionAPICompatibleDateString(from date: Date) -> String {
         let formatter = DateFormatter()
         // Notion API uses ISO 8601 format for dates
@@ -1576,7 +1660,7 @@ struct CaptureView: View {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.date(from: dateString) != nil
     }
-    
+
     private var currentKeyHints: [KeyHint] {
         var hints: [KeyHint] = []
         
@@ -1612,16 +1696,17 @@ struct CaptureView: View {
         return hints
     }
 
-
     private func iconForField(field: EditableTemplateFieldViewData, index: Int) -> some View {
         let iconName: String
         let iconColor: Color
-        let isFieldValid = fieldValidationStatus[field.name] ?? true // Assume valid if not explicitly invalid
+        let isFieldValid = fieldValidationStatus[field.name] ?? true
+        let fieldValue = capturedData[field.name] ?? ""
+        let defaultValue = field.defaultValue as? String ?? ""
 
         if !isFieldValid {
             iconName = "exclamationmark.triangle"
             iconColor = Color.red
-        } else if filledFields.contains(index) || !(capturedData[field.name] ?? "").isEmpty {
+        } else if userFilledFields.contains(field.name) || (["select", "status", "relation"].contains(field.kind) && fieldValue != defaultValue) {
             iconName = "checkmark.square"
             iconColor = Constants.iconSecondary
         } else if field.priority == "mandatory" {
@@ -1633,25 +1718,20 @@ struct CaptureView: View {
         }
 
         return Image(systemName: iconName)
-            .resizable()
             .frame(width: 16, height: 16)
             .foregroundColor(iconColor)
     }
-
-
 }
-    
-    
-    struct Constants {
-        static let bgPrimary: Color = .white
-        static let bgPrimaryStroke: Color = Color(red: 0.91, green: 0.91, blue: 0.91)
-        static let iconSecondary: Color = Color(red: 0.62, green: 0.62, blue: 0.65)
-        static let textPrimary: Color = Color(red: 0.27, green: 0.29, blue: 0.38)
-        static let textSecondary: Color = Color(red: 0.43, green: 0.42, blue: 0.44)
-        static let bgPrimaryHover: Color = Color(red: 0.95, green: 0.95, blue: 0.95)
-        static let colorPrimary: Color = Color(red: 0.42, green: 0.50, blue: 1.00)
-    }
 
+struct Constants {
+    static let bgPrimary: Color = .white
+    static let bgPrimaryStroke: Color = Color(red: 0.91, green: 0.91, blue: 0.91)
+    static let iconSecondary: Color = Color(red: 0.62, green: 0.62, blue: 0.65)
+    static let textPrimary: Color = Color(red: 0.27, green: 0.29, blue: 0.38)
+    static let textSecondary: Color = Color(red: 0.43, green: 0.42, blue: 0.44)
+    static let bgPrimaryHover: Color = Color(red: 0.95, green: 0.95, blue: 0.95)
+    static let colorPrimary: Color = Color(red: 0.42, green: 0.50, blue: 1.00)
+}
 
 extension Array {
     subscript(safe index: Int) -> Element? {

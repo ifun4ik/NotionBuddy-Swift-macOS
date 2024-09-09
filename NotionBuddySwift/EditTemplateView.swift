@@ -183,10 +183,11 @@ struct EditTemplateView: View {
                     newField.defaultValue = String(data: jsonData, encoding: .utf8) ?? ""
                 }
             } else {
-                if ["select", "status"].contains(fieldViewData.kind) && fieldViewData.defaultValue == "Select" {
-                    newField.defaultValue = ""
-                } else {
+                // Don't set default values for select, status, and relation fields
+                if !["select", "status", "relation"].contains(fieldViewData.kind) {
                     newField.defaultValue = fieldViewData.defaultValue
+                } else {
+                    newField.defaultValue = ""
                 }
             }
             
@@ -517,7 +518,7 @@ struct EditTemplateView: View {
                         get: { field.defaultValue.isEmpty ? "Select" : field.defaultValue },
                         set: { field.defaultValue = $0 == "Select" ? "" : $0 }
                     ),
-                    options: field.options?.reduce(into: [String: String]()) { $0[$1] = $1 } ?? [:],
+                    options: ["Select": "Select"].merging(field.options?.reduce(into: [String: String]()) { $0[$1] = $1 } ?? [:], uniquingKeysWith: { (_, new) in new }),
                     placeholder: "Select")
                         .disabled(field.priority == "skip")
                 case "multi_select":

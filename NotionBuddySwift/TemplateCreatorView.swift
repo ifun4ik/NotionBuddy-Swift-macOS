@@ -152,7 +152,7 @@ struct FieldRow: View {
                                 DispatchQueue.main.async {
                                     field.relationOptions = titles
                                     field.options = Array(titles.values)
-                                    field.defaultValue = titles.values.first ?? ""
+                                    // Remove this line: field.defaultValue = titles.values.first ?? ""
                                 }
                             }
                         }
@@ -180,7 +180,7 @@ struct FieldRow: View {
             DispatchQueue.main.async {
                 self.field.relationOptions = titles
                 self.field.options = Array(titles.values)
-                self.field.defaultValue = titles.values.first ?? ""
+                // Remove this line: self.field.defaultValue = titles.values.first ?? ""
                 completion(titles)
             }
         }
@@ -420,18 +420,8 @@ struct TemplateCreatorView: View {
                 if let jsonData = try? JSONEncoder().encode(fieldViewData.selectedValues) {
                     newField.defaultValue = String(data: jsonData, encoding: .utf8) ?? ""
                 }
-            case "select", "status":
-                newField.defaultValue = fieldViewData.defaultValue == "Select" ? "" : fieldViewData.defaultValue
-            case "relation":
-                newField.defaultValue = fieldViewData.defaultValue
-                if let relationOptions = fieldViewData.relationOptions {
-                    do {
-                        let jsonData = try JSONEncoder().encode(relationOptions)
-                        newField.options = jsonData
-                    } catch {
-                        print("Failed to encode relation options: \(error)")
-                    }
-                }
+            case "select", "status", "relation":
+                newField.defaultValue = fieldViewData.defaultValue.isEmpty ? "" : fieldViewData.defaultValue
             default:
                 newField.defaultValue = fieldViewData.defaultValue
             }

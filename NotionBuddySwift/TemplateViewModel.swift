@@ -17,17 +17,14 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
         self.kind = templateField.kind ?? ""
         self.name = templateField.name ?? ""
         self.priority = templateField.priority ?? FieldPriority.optional.rawValue
-        self.defaultValue = templateField.defaultValue ?? ""
         self.order = templateField.order
 
         if let optionsData = templateField.options as? Data {
             do {
-                // Try to decode as a dictionary first
                 if let optionsDictionary = try? JSONDecoder().decode([String: String].self, from: optionsData) {
                     self.options = Array(optionsDictionary.values)
                     self.relationOptions = optionsDictionary
                 } else {
-                    // If it's not a dictionary, try decoding as an array
                     self.options = try JSONDecoder().decode([String].self, from: optionsData)
                 }
             } catch {
@@ -36,6 +33,14 @@ class EditableTemplateFieldViewData: ObservableObject, Identifiable {
             }
         } else {
             self.options = []
+        }
+
+        // Only set default value if it's not empty and not a dropdown field
+        if let defaultValue = templateField.defaultValue, !defaultValue.isEmpty,
+           !["select", "multi_select", "status", "relation"].contains(kind) {
+            self.defaultValue = defaultValue
+        } else {
+            self.defaultValue = ""
         }
 
         if kind == "multi_select", let defaultValue = templateField.defaultValue {
@@ -87,7 +92,9 @@ class TemplateViewModel: ObservableObject {
         self.templateName = template.name ?? ""
         let templateFieldsArray = fetchFields(for: template, in: template.managedObjectContext!)
         let sortedTemplateFields = templateFieldsArray.sorted(by: { $0.order < $1.order })
-        self.templateFields = sortedTemplateFields.map { EditableTemplateFieldViewData(templateField: $0) }
+        self.templateFields = sortedTemplateFields.map { field in
+            EditableTemplateFieldViewData(templateField: field)
+        }
     }
 
     func fetchFields(for template: Template, in managedObjectContext: NSManagedObjectContext) -> [TemplateField] {
