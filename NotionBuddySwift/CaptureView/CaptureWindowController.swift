@@ -1,12 +1,13 @@
 import Cocoa
 import SwiftUI
 
-class CaptureWindowController: NSWindowController {
+class CaptureWindowController: NSWindowController, NSWindowDelegate {
     var eventMonitor: Any?
 
     override func windowDidLoad() {
         super.windowDidLoad()
         
+        window?.delegate = self
         window?.setFrame(NSRect(x: 0, y: 0, width: 480, height: 1500), display: false)
         positionWindowNearTop()
         
@@ -18,32 +19,24 @@ class CaptureWindowController: NSWindowController {
             }
             return event
         }
-        
-        // New code: This should focus the text field if this window becomes key
-        DispatchQueue.main.async {
-            self.focusTextField()
-        }
     }
     
-    // New Method: To focus the text field
+    func windowDidBecomeKey(_ notification: Notification) {
+        focusTextField()
+    }
+    
     func focusTextField() {
-        if let textField = findFirstResponder(in: window?.contentView) {
-            window?.makeFirstResponder(textField)
-        }
-    }
-    
-    // New Method: Recursive function to find the NSTextField in the view hierarchy
-    private func findFirstResponder(in view: NSView?) -> NSView? {
-        guard let view = view else { return nil }
-        for subview in view.subviews {
-            if subview is NSTextField {
-                return subview
+        DispatchQueue.main.async { [weak self] in
+            guard let window = self?.window else { return }
+            if let firstResponder = window.firstResponder as? NSTextView,
+               firstResponder.isDescendant(of: window.contentView!) {
+                return // TextField is already focused
             }
-            if let firstResponder = findFirstResponder(in: subview) {
-                return firstResponder
+            window.makeFirstResponder(nil) // Reset first responder
+            if let hostingView = window.contentView?.subviews.first as? NSHostingView<CaptureView> {
+                hostingView.rootView.focusFirstTextField()
             }
         }
-        return nil
     }
     
     func positionWindowNearTop() {

@@ -50,6 +50,8 @@ struct CaptureView: View {
     @State private var fieldUpdateTrigger: Bool = false
     @State private var lastUpdatedField: String?
     
+    @FocusState private var isFocused: Bool
+    
     init(accessToken: String) {
         self.accessToken = accessToken
         self.databaseService = DatabaseService(accessToken: accessToken)
@@ -150,65 +152,50 @@ struct CaptureView: View {
                             }
                         }
                         
-                        TextField(textFieldPlaceholder, text: Binding(
-                            get: { self.capturedText },
-                            set: {
-                                self.capturedText = $0
-                                self.filterText = $0
-                                self.activeOptionIndex = 0 // Reset the active option index when typing
-                            }
-                        ))
-                        .frame(height: 22)
-                        .padding(.top, 2)
-                        .textFieldStyle(.plain)
-                        .font(Font.custom("SF Pro Text", size: 16).weight(.medium))
-                        .foregroundColor(getTextFieldColor())
-                        .introspect(.textField, on: .macOS(.v10_15, .v11, .v12, .v13, .v14)) { textField in
-                            DispatchQueue.main.asyncAfter(deadline: .now()) {
-                                textField.becomeFirstResponder()
-                                textField.currentEditor()?.selectedRange = NSRange(location: textField.stringValue.count, length: 0)
-                                
-                                if committedTemplate != nil, let index = activeFieldIndex, index < displayFields.count {
-                                    isPlaceholderActive = displayFields[index].defaultValue != nil
-                                } else if committedTemplate != nil {
-                                    activeFieldIndex = 0
-                                    isPlaceholderActive = displayFields.first?.defaultValue != nil
+                        TextField(textFieldPlaceholder, text: $capturedText)
+                            .focused($isFocused)
+                            .frame(height: 22)
+                            .padding(.top, 2)
+                            .textFieldStyle(.plain)
+                            .font(Font.custom("SF Pro Text", size: 16).weight(.medium))
+                            .foregroundColor(getTextFieldColor())
+                            .onAppear {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    self.isFocused = true
                                 }
-                                
-                                if let placeholderString = textField.placeholderString {
-                                    let placeholderFont = NSFont(name: "SF Pro Text", size: 16) ?? NSFont.systemFont(ofSize: 16)
-                                    let placeholderAttributes: [NSAttributedString.Key: Any] = [
-                                        .foregroundColor: NSColor(Constants.textSecondary),
-                                        .font: placeholderFont
-                                    ]
-                                    textField.placeholderAttributedString = NSAttributedString(string: placeholderString, attributes: placeholderAttributes)
+                            }
+                            .onChange(of: isFocused) { newValue in
+                                if newValue {
+                                    if committedTemplate != nil, let index = activeFieldIndex, index < displayFields.count {
+                                        isPlaceholderActive = displayFields[index].defaultValue != nil
+                                    } else if committedTemplate != nil {
+                                        activeFieldIndex = 0
+                                        isPlaceholderActive = displayFields.first?.defaultValue != nil
+                                    }
                                 }
+                            }
+                            .onChange(of: capturedText) { newValue in
+                                handleCapturedTextChange(newValue)
                                 
-                                textField.toolTip = recognizedDate != nil ? recognizedDateText : nil
+                                // Update filtering for select, multi-select, and status fields
+                                if let activeField = getActiveField(),
+                                   ["select", "multi_select", "status"].contains(activeField.kind) {
+                                    filterText = newValue
+                                    activeOptionIndex = 0 // Reset the active option index when filtering
+                                }
                             }
-                        }
-                        .onChange(of: capturedText) { newValue in
-                            handleCapturedTextChange(newValue)
-                            
-                            // Update filtering for select, multi-select, and status fields
-                            if let activeField = getActiveField(),
-                               ["select", "multi_select", "status"].contains(activeField.kind) {
-                                filterText = newValue
-                                activeOptionIndex = 0 // Reset the active option index when filtering
+                            .onAppear {
+                                var capturedDataCopy = capturedData
+                                capturedDataCopy = Dictionary(uniqueKeysWithValues: displayFields.map { ($0.name, $0.defaultValue ?? "") })
+                                setupKeyEventHandling()
+                                capturedData = capturedDataCopy
                             }
-                        }
-                        .onAppear {
-                            var capturedDataCopy = capturedData
-                            capturedDataCopy = Dictionary(uniqueKeysWithValues: displayFields.map { ($0.name, $0.defaultValue ?? "") })
-                            setupKeyEventHandling()
-                            capturedData = capturedDataCopy
-                        }
-                        .onDisappear {
-                            if let localEventMonitor = self.localEventMonitor {
-                                NSEvent.removeMonitor(localEventMonitor)
-                                self.localEventMonitor = nil
+                            .onDisappear {
+                                if let localEventMonitor = self.localEventMonitor {
+                                    NSEvent.removeMonitor(localEventMonitor)
+                                    self.localEventMonitor = nil
+                                }
                             }
-                        }
                     }
                     .padding(16)
                     .background(Color.white)
@@ -1720,6 +1707,16 @@ struct CaptureView: View {
         return Image(systemName: iconName)
             .frame(width: 16, height: 16)
             .foregroundColor(iconColor)
+    }
+
+    @MainActor func focusFirstTextField() {
+        DispatchQueue.main.async {
+            self.isFocused = true
+            if let firstField = self.displayFields.first {
+                self.activeFieldIndex = 0
+                self.capturedText = self.capturedData[firstField.name] ?? ""
+            }
+        }
     }
 }
 
